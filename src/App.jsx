@@ -8,6 +8,9 @@ import Account from './components/Account'
 import BetForm from './components/BetForm'
 import BetHistory from './components/BetHistory'
 import DashboardStats from './components/DashboardStats'
+import SimpleStakeCalculator from './components/SimpleStakeCalculator'
+import AdvancedAnalytics from './components/AdvancedAnalytics'
+import StakingPlanner from './components/StakingPlanner'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -15,6 +18,7 @@ function App() {
   const [showBetForm, setShowBetForm] = useState(false)
   const [refreshBetsToggle, setRefreshBetsToggle] = useState(false)
   const [refreshStatsToggle, setRefreshStatsToggle] = useState(false)
+  const [refreshPlansToggle, setRefreshPlansToggle] = useState(false)
 
   useEffect(() => {
     // Tenta di ottenere la sessione corrente all'avvio dell'app
@@ -46,9 +50,20 @@ function App() {
   // Funzione da passare a BetForm per sapere quando chiuderlo (opzionale)
   const handleBetSubmitSuccess = () => {
       console.log("Bet submitted successfully!");
-      setShowBetForm(false); // Nasconde il form
-      setRefreshBetsToggle(prev => !prev); // Triggera refresh storico
-      setRefreshStatsToggle(prev => !prev); // <-- Triggera refresh statistiche
+      setShowBetForm(false);
+      setRefreshBetsToggle(prev => !prev);
+      setRefreshStatsToggle(prev => !prev);
+      setRefreshPlansToggle(prev => !prev);
+  }
+
+  // NUOVA FUNZIONE per triggerare refresh dopo update profilo/status
+  const handlePossibleProfileUpdate = () => {
+      console.log("Profile or status possibly updated, triggering refresh...");
+      // Usiamo il toggle delle statistiche/piani come segnale generico di refresh profilo
+      setRefreshStatsToggle(prev => !prev);
+      setRefreshPlansToggle(prev => !prev);
+      // Potremmo anche aggiornare quello delle scommesse se necessario
+      // setRefreshBetsToggle(prev => !prev);
   }
 
   return (
@@ -61,6 +76,17 @@ function App() {
         <div>
             {/* Dashboard Statistiche (in cima) */}
             <DashboardStats key={`stats-${session.user.id}-${refreshStatsToggle}`} session={session} />
+
+            {/* Calcolatore Stake Semplice */}
+            <SimpleStakeCalculator key={`calculator-${session.user.id}-${refreshStatsToggle}`} session={session} />
+            <hr style={{margin: '20px 0'}}/>
+
+            {/* Analisi Avanzate (Premium) */}
+            <AdvancedAnalytics key={`adv-stats-${session.user.id}-${refreshStatsToggle}`} session={session} />
+            <hr style={{margin: '20px 0'}}/>
+
+            {/* Gestione Piani Staking (Premium) */}
+            <StakingPlanner key={`planner-${session.user.id}-${refreshPlansToggle}`} session={session} onPlansChange={handlePossibleProfileUpdate}/>
             <hr style={{margin: '20px 0'}}/>
 
             {/* Mostra il bottone per aggiungere scommessa SOLO se il form NON è già visibile */}
@@ -74,9 +100,9 @@ function App() {
             {showBetForm && (
                 <div>
                     <BetForm
-                        key={'bet-form-' + session.user.id} // Key per reset se utente cambia? Forse non serve qui.
+                        key={'bet-form-' + session.user.id}
                         session={session}
-                        onSubmitSuccess={handleBetSubmitSuccess} // Passa la callback
+                        onSubmitSuccess={handleBetSubmitSuccess}
                     />
                     {/* Bottone per chiudere il form */}
                     <button onClick={() => setShowBetForm(false)} style={{marginTop: '10px'}}>
@@ -92,7 +118,11 @@ function App() {
             <hr style={{margin: '20px 0'}}/> {/* Separatore */}
 
             {/* Mostra sempre il componente Account sotto */}
-            <Account key={`account-${session.user.id}-${refreshBetsToggle}`} session={session} />
+            <Account
+                key={`account-${session.user.id}-${refreshBetsToggle}`}
+                session={session}
+                onProfileUpdate={handlePossibleProfileUpdate}
+            />
         </div>
       )}
       {/* Il bottone Logout può stare qui se vuoi che sia sempre visibile
