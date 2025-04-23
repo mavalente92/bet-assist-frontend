@@ -1,5 +1,41 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import styles from './DashboardStats.module.css'; // Importa il CSS Module
+
+// ----- Funzioni Helper di Formattazione -----
+
+// Funzione helper per formattare numeri (es. P/L, ROI)
+const formatNumber = (num, decimals = 2) => {
+  if (typeof num !== 'number' || isNaN(num)) {
+    return '-';
+  }
+  return num.toFixed(decimals);
+};
+
+// Funzione helper per formattare percentuali
+const formatPercent = (num) => {
+  if (typeof num !== 'number' || isNaN(num)) {
+    return '-';
+  }
+  return `${num.toFixed(2)}%`;
+};
+
+// Funzione Helper per formattare valuta
+const formatCurrency = (value) => {
+  // Gestisce sia numeri che valori già formattati o stringhe valide
+  if (typeof value === 'number' && !isNaN(value)) {
+    return value.toFixed(2);
+  } else if (typeof value === 'string' && !isNaN(parseFloat(value))) {
+    // Se è una stringa che rappresenta un numero, formattala
+    return parseFloat(value).toFixed(2);
+  } else if (value === null || value === undefined || isNaN(value)) {
+     // Restituisci '0.00' per null, undefined o NaN esplicito dopo un tentativo di conversione
+     return '0.00';
+  }
+  // Se è già una stringa formattata o non numerica valida, restituiscila com'è
+  // O potresti voler restituire 'N/A' o '-' a seconda del caso
+  return value; // O gestisci diversamente se necessario
+};
 
 export default function DashboardStats({ session, refreshToggle }) {
   const [stats, setStats] = useState(null);
@@ -39,41 +75,25 @@ export default function DashboardStats({ session, refreshToggle }) {
     fetchStats();
   }, [session?.user?.id, refreshToggle]);
 
-  // Funzione helper per formattare numeri (es. P/L, ROI)
-  const formatNumber = (num, decimals = 2) => {
-    if (typeof num !== 'number' || isNaN(num)) {
-      return '-';
-    }
-    return num.toFixed(decimals);
-  };
-
-  // Funzione helper per formattare percentuali
-  const formatPercent = (num) => {
-    if (typeof num !== 'number' || isNaN(num)) {
-      return '-';
-    }
-    return `${num.toFixed(2)}%`;
-  };
-
   // ----- JSX per visualizzare le statistiche -----
   return (
-    <div className="stats-widget" style={widgetStyle}>
+    <div className={styles.widget}>
       <h3>Dashboard Statistiche (Totali)</h3>
       {loadingStats && <p>Caricamento statistiche...</p>}
       {errorStats && <p style={{ color: 'red' }}>{errorStats}</p>}
 
       {!loadingStats && !errorStats && stats && (
-        <div style={gridStyle}> {/* Usa un layout a griglia per le statistiche */}
-          <StatCard title="Profitto/Perdita Totale" value={formatNumber(stats.total_profit_loss)} isPositive={stats.total_profit_loss > 0} isNegative={stats.total_profit_loss < 0} currency="€" />
-          <StatCard title="ROI" value={formatPercent(stats.roi)} isPositive={stats.roi > 0} isNegative={stats.roi < 0} />
-          <StatCard title="Turnover Totale" value={formatNumber(stats.total_turnover)} currency="€" />
+        <div className={styles.grid}> {/* Usa un layout a griglia per le statistiche */}
+          <StatCard title="Profitto/Perdita Totale" value={stats.total_profit_loss} currency="€" />
+          <StatCard title="ROI" value={stats.roi} isPercentage={true} />
+          <StatCard title="Turnover Totale" value={stats.total_turnover} currency="€" />
           <StatCard title="Scommesse Totali" value={stats.total_bets} />
           <StatCard title="Scommesse Vinte" value={stats.won_bets} />
           <StatCard title="Scommesse Perse" value={stats.lost_bets} />
-          <StatCard title="Win Rate" value={formatPercent(stats.win_rate)} />
-          <StatCard title="Quota Media Giocata" value={formatNumber(stats.avg_odds_played)} />
-          <StatCard title="Quota Media Vinta" value={formatNumber(stats.avg_odds_won)} />
-          <StatCard title="Puntata Media" value={formatNumber(stats.avg_stake)} currency="€" />
+          <StatCard title="Win Rate" value={stats.win_rate} isPercentage={true} />
+          <StatCard title="Quota Media Giocata" value={stats.avg_odds_played} />
+          <StatCard title="Quota Media Vinta" value={stats.avg_odds_won} />
+          <StatCard title="Puntata Media" value={stats.avg_stake} currency="€" />
           <StatCard title="Scommesse Aperte" value={stats.open_bets} />
           <StatCard title="Scommesse Void" value={stats.void_bets} />
         </div>
@@ -86,55 +106,48 @@ export default function DashboardStats({ session, refreshToggle }) {
 }
 
 // Componente interno riutilizzabile per mostrare una singola statistica
-function StatCard({ title, value, currency = '', isPositive = false, isNegative = false }) {
-  const valueStyle = {
-    fontSize: '1.5em',
-    fontWeight: 'bold',
-    color: isPositive ? 'green' : isNegative ? 'red' : '#333',
-    display: 'block',
-    marginTop: '5px',
-  };
+function StatCard({ title, value, currency = '', isPercentage = false }) {
+  // Ora le funzioni di formattazione sono definite nello scope del modulo
+  // e sono direttamente accessibili qui.
 
-  const explicitTitleStyle = {
-    ...titleStyle,
-    color: '#555',
-  };
+  let valueClass = styles.cardValue;
+  let displayValue = 'N/A';
+  const showCurrencySymbol = !!currency && !isPercentage; // Determina se mostrare il simbolo valuta basandosi sulla prop currency
+
+  // Applica colore e formatta il valore
+  if (typeof value === 'number' && !isNaN(value)) {
+    if (isPercentage) {
+      displayValue = formatPercent(value); // Usa la funzione formatPercent definita sopra
+      // Nessun colore specifico per le percentuali (si potrebbe aggiungere se necessario)
+    } else {
+      // Applica colore per valori numerici non percentuali
+      if (value > 0) {
+        valueClass = `${styles.cardValue} ${styles.valuePositive}`;
+      } else if (value < 0) {
+        valueClass = `${styles.cardValue} ${styles.valueNegative}`;
+      }
+
+      // Formatta il valore (valuta o numero generico)
+      if (showCurrencySymbol) {
+        displayValue = formatCurrency(value); // Usa la funzione formatCurrency definita sopra
+      } else {
+        displayValue = formatNumber(value); // Usa la funzione formatNumber definita sopra
+      }
+    }
+  } else if (value !== null && value !== undefined) {
+    // Gestisce valori non numerici ma definiti (es. potrebbe essere '-' dalla funzione format)
+    displayValue = value;
+  }
+  // Se value è null o undefined, displayValue rimane 'N/A' per default
 
   return (
-    <div style={cardStyle}>
-      <span style={explicitTitleStyle}>{title}</span>
-      <span style={valueStyle}>
-        {value} {currency}
+    <div className={styles.card}>
+      <span className={styles.cardTitle}>{title}</span>
+      <span className={valueClass}>
+        {displayValue}
+        {/* Mostra il simbolo della valuta se specificato e non è una percentuale */}
+        {showCurrencySymbol && <span className={styles.currency}>{currency}</span>}
       </span>
     </div>
   );
 }
-
-// Stili base (possono essere spostati in App.css)
-const widgetStyle = {
-  marginBottom: '30px',
-  padding: '15px',
-  border: '1px solid #eee',
-  borderRadius: '5px',
-  backgroundColor: '#f9f9f9',
-};
-
-const gridStyle = {
-  display: 'grid',
-  // Griglia responsive: 2 colonne su schermi piccoli, 3 su medi, 4 su grandi
-  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', // Adatta automaticamente le colonne
-  gap: '15px', // Spazio tra le card
-};
-
-const cardStyle = {
-  backgroundColor: '#fff',
-  padding: '15px',
-  border: '1px solid #ddd',
-  borderRadius: '5px',
-  textAlign: 'center', // Centra il contenuto della card
-};
-
-const titleStyle = {
-  fontSize: '0.9em',
-  display: 'block',
-};

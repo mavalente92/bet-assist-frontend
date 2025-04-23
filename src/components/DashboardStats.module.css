@@ -1,0 +1,54 @@
+/* bet-assist-frontend/src/components/DashboardStats.module.css */
+
+.widget {
+  margin-bottom: 30px;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+.grid {
+  display: grid;
+  /* Griglia responsive: 2 colonne su schermi piccoli, 3 su medi, 4 su grandi */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Adatta automaticamente le colonne */
+  gap: 15px; /* Spazio tra le card */
+}
+
+.card {
+  background-color: #fff;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-align: center; /* Centra il contenuto della card */
+}
+
+.cardTitle {
+  font-size: 0.9em;
+  color: #555; /* Stile esplicito per il titolo */
+  display: block; /* Assicura che sia su una riga separata */
+  margin-bottom: 5px; /* Aggiunge spazio sotto il titolo */
+}
+
+.cardValue {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #333; /* Colore di default */
+  display: block;
+}
+
+/* Classi specifiche per colore valore */
+.valuePositive {
+  color: green;
+}
+
+.valueNegative {
+  color: red;
+}
+
+/* Stile per la valuta (leggermente più piccolo) */
+.currency {
+    font-size: 0.8em;
+    margin-left: 3px;
+    color: #555; /* Usa lo stesso colore del titolo? */
+} 

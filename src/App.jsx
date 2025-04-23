@@ -8,9 +8,11 @@ import Account from './components/Account'
 import BetForm from './components/BetForm'
 import BetHistory from './components/BetHistory'
 import DashboardStats from './components/DashboardStats'
+import DashboardCharts from './components/DashboardCharts'
 import SimpleStakeCalculator from './components/SimpleStakeCalculator'
 import AdvancedAnalytics from './components/AdvancedAnalytics'
 import StakingPlanner from './components/StakingPlanner'
+import Navigation from './components/Navigation'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -19,65 +21,62 @@ function App() {
   const [refreshBetsToggle, setRefreshBetsToggle] = useState(false)
   const [refreshStatsToggle, setRefreshStatsToggle] = useState(false)
   const [refreshPlansToggle, setRefreshPlansToggle] = useState(false)
+  const [activeTab, setActiveTab] = useState('dashboard')
 
   // --- useEffect per Sessione INIZIALE e Loading ---
   useEffect(() => {
-    setLoading(true) // Inizia caricamento
-    console.log("Checking initial session...")
+    setLoading(true)
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      console.log("Initial session check complete.", initialSession?.user?.id || 'No session')
-      setSession(initialSession) // Imposta sessione iniziale (potrebbe essere null)
+      setSession(initialSession)
     }).catch((error) => {
       console.error("Error getting initial session:", error)
-      setSession(null) // Imposta null anche in caso di errore
+      setSession(null)
     }).finally(() => {
-      setLoading(false) // Fine caricamento iniziale, SEMPRE
+      setLoading(false)
     })
-
-    // Questo effetto viene eseguito solo al mount del componente App
-  }, []) // Array dipendenze VUOTO
+  }, [])
 
   // --- useEffect per ASCOLTARE i cambiamenti di stato ---
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Logga l'evento ma aggiorna lo stato session DI DIRETTAMENTE
-      // Non serve più la logica complessa con prevSession ora che l'iniziale è gestito sopra
       console.log(`>>> Auth state changed! Event: ${_event}`, session?.user?.id || null)
-      setSession(session) // Aggiorna semplicemente allo stato ricevuto
-                           // Questo gestirà SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED etc.
-                           // Il refresh su focus con SIGNED_IN non dovrebbe causare loop
-                           // perché questo useEffect non dipende da 'loading'.
+      setSession(session)
+      // Se l'utente fa logout, torna alla dashboard (o potremmo nascondere tutto)
+      if (_event === 'SIGNED_OUT') {
+          setActiveTab('dashboard'); // O gestisci diversamente
+          setShowBetForm(false); // Chiudi form scommesse al logout
+      }
     })
-
-    // Cleanup subscription on unmount
     return () => {
-      console.log("Unsubscribing from onAuthStateChange")
       subscription.unsubscribe()
     }
+  }, [])
 
-    // Anche questo effetto viene eseguito solo al mount per impostare l'ascoltatore
-  }, []) // Array dipendenze VUOTO
-
-  // Funzione da passare a BetForm per sapere quando chiuderlo (opzionale)
+  // Funzione da passare a BetForm per sapere quando chiuderlo
   const handleBetSubmitSuccess = () => {
       console.log("Bet submitted successfully!")
       setShowBetForm(false)
       setRefreshBetsToggle(prev => !prev)
       setRefreshStatsToggle(prev => !prev)
       setRefreshPlansToggle(prev => !prev)
+      // Potremmo voler passare alla tab Scommesse dopo l'invio?
+      // setActiveTab('bets');
   }
 
-  // NUOVA FUNZIONE per triggerare refresh dopo update profilo/status
+  // Funzione per triggerare refresh dopo update profilo/status
   const handlePossibleProfileUpdate = () => {
       console.log("Profile or status possibly updated, triggering refresh...")
-      // Usiamo il toggle delle statistiche/piani come segnale generico di refresh profilo
-      setRefreshStatsToggle(prev => !prev)
-      setRefreshPlansToggle(prev => !prev)
-      // Potremmo anche aggiornare quello delle scommesse se necessario
-      // setRefreshBetsToggle(prev => !prev)
+      setRefreshStatsToggle(prev => !prev) // Stats/Charts/Calculator/Account si aggiornano
+      setRefreshPlansToggle(prev => !prev) // Planner si aggiorna
+      // Non serve refreshare BetHistory qui
   }
 
-  // Se stiamo ancora caricando la sessione INIZIALE, mostra un messaggio
+  // Funzione per triggerare refresh piani (usata da StakingPlanner)
+  const handlePlansChange = () => {
+      setRefreshPlansToggle(prev => !prev);
+      // Altre azioni se necessario?
+  }
+
   if (loading) {
     return <div>Caricamento sessione iniziale...</div>
   }
@@ -85,71 +84,81 @@ function App() {
   return (
     <div className="container" style={{ padding: '50px 0 100px 0' }}>
       {!session ? (
-        // Se non c'è sessione, mostra il componente di Autenticazione
         <Auth />
       ) : (
-        // Se c'è sessione, mostra l'area riservata (es. la dashboard)
         <div>
-            {/* Dashboard Statistiche (in cima) */}
-            <DashboardStats key={`stats-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
+          {/* --- BARRA DI NAVIGAZIONE (USA NUOVO COMPONENTE) --- */}
+          <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-            {/* Calcolatore Stake Semplice */}
-            <SimpleStakeCalculator key={`calculator-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
-            <hr style={{margin: '20px 0'}}/>
+          {/* --- AREA CONTENUTO TAB --- */}
+          <div>
 
-            {/* Analisi Avanzate (Premium) */}
-            <AdvancedAnalytics key={`adv-stats-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
-            <hr style={{margin: '20px 0'}}/>
-
-            {/* Gestione Piani Staking (Premium) */}
-            <StakingPlanner key={`planner-${session.user.id}`} session={session} onPlansChange={handlePossibleProfileUpdate} refreshToggle={refreshPlansToggle} />
-            <hr style={{margin: '20px 0'}}/>
-
-            {/* Mostra il bottone per aggiungere scommessa SOLO se il form NON è già visibile */}
-            {!showBetForm && (
-                <button onClick={() => setShowBetForm(true)} style={{marginBottom: '20px'}}>
-                    + Aggiungi Scommessa
-                </button>
+            {/* Contenuto Tab Dashboard */}
+            {activeTab === 'dashboard' && (
+              <>
+                <DashboardStats key={`stats-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
+                <DashboardCharts key={`charts-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
+              </>
             )}
 
-            {/* Mostra il BetForm se showBetForm è true */}
-            {showBetForm && (
-                <div>
-                    <BetForm
-                        key={'bet-form-' + session.user.id}
-                        session={session}
-                        onSubmitSuccess={handleBetSubmitSuccess}
-                    />
-                    {/* Bottone per chiudere il form */}
-                    <button onClick={() => setShowBetForm(false)} style={{marginTop: '10px'}}>
-                        Annulla / Chiudi Form
+            {/* Contenuto Tab Scommesse */}
+            {activeTab === 'bets' && (
+              <>
+                {!showBetForm && (
+                    <button onClick={() => setShowBetForm(true)} style={{marginBottom: '20px'}}>
+                        + Aggiungi Scommessa
                     </button>
-                    <hr style={{margin: '20px 0'}}/> {/* Separatore */}
-                </div>
+                )}
+                {showBetForm && (
+                    <div>
+                        <BetForm
+                            key={'bet-form-' + session.user.id} // Chiave qui può rimanere per reset form
+                            session={session}
+                            onSubmitSuccess={handleBetSubmitSuccess}
+                        />
+                        <button onClick={() => setShowBetForm(false)} style={{marginTop: '10px'}}>
+                            Annulla / Chiudi Form
+                        </button>
+                        <hr style={{margin: '20px 0'}}/>
+                    </div>
+                )}
+                <BetHistory key={`history-${session.user.id}`} session={session} refreshToggle={refreshBetsToggle} />
+              </>
             )}
 
-            {/* Storico Scommesse */}
-            <BetHistory key={`history-${session.user.id}`} session={session} refreshToggle={refreshBetsToggle} />
-            <hr style={{margin: '20px 0'}}/> {/* Separatore */}
+            {/* Contenuto Tab Strumenti */}
+            {activeTab === 'tools' && (
+              <>
+                <SimpleStakeCalculator key={`calculator-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
+                <hr style={{margin: '20px 0'}}/>
+                {/* Questi componenti gestiscono internamente la visibilità premium */}
+                <AdvancedAnalytics key={`adv-stats-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
+                <hr style={{margin: '20px 0'}}/>
+                <StakingPlanner key={`planner-${session.user.id}`} session={session} onPlansChange={handlePlansChange} refreshToggle={refreshPlansToggle} />
+              </>
+            )}
 
-            {/* Mostra sempre il componente Account sotto */}
-            <Account
-                key={`account-${session.user.id}`}
-                session={session}
-                onProfileUpdate={handlePossibleProfileUpdate}
-                refreshToggle={refreshStatsToggle}
-            />
+            {/* Contenuto Tab Profilo */}
+            {activeTab === 'profile' && (
+              <Account
+                  key={`account-${session.user.id}`} // Chiave statica qui va bene
+                  session={session}
+                  onProfileUpdate={handlePossibleProfileUpdate}
+                  refreshToggle={refreshStatsToggle} // Si aggiorna se cambiano P/L o Bankroll
+              />
+            )}
+
+          </div>
+          {/* --- FINE AREA CONTENUTO TAB --- */}
+
+          {/* Bottone Logout (sempre visibile in fondo) */}
+          <button
+              onClick={() => supabase.auth.signOut()}
+              style={{ marginTop: '30px' }} // Più spazio
+          >
+              Logout
+          </button>
         </div>
-      )}
-      {/* Il bottone Logout può stare qui se vuoi che sia sempre visibile
-          in fondo alla pagina quando loggato, oppure spostalo dentro Account.jsx */}
-      {session && (
-           <button
-                onClick={() => supabase.auth.signOut()}
-                style={{ marginTop: '20px' }} // Aggiungi un po' di spazio
-           >
-                Logout
-           </button>
       )}
     </div>
   )

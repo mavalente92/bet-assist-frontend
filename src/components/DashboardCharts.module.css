@@ -1,0 +1,31 @@
+/* Stili per DashboardCharts.module.css */
+
+.chartContainer {
+    display: grid;
+    /* Crea colonne flessibili: minimo 400px, si adattano allo spazio disponibile */
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px; /* Spazio tra i widget dei grafici */
+    margin-top: 30px; /* Spazio sopra il contenitore dei grafici */
+}
+
+.chartWidget {
+    padding: 20px; /* Aumentato leggermente per più respiro */
+    border: 1px solid #e0e0e0; /* Bordo leggermente più visibile */
+    border-radius: 8px; /* Bordi più arrotondati */
+    background-color: #ffffff; /* Sfondo bianco */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Ombra leggera */
+    /* Il widget si adatta in altezza al contenuto (ResponsiveContainer gestirà l'altezza del grafico) */
+}
+
+/* Stili aggiuntivi per messaggi specifici (combinabili con chartWidget) */
+.errorMessage {
+    color: #dc3545; /* Rosso per errori */
+    font-weight: bold;
+}
+
+.infoMessage {
+    font-style: italic;
+    color: #6c757d; /* Grigio per messaggi informativi */
+    text-align: center; /* Centriamo il testo informativo */
+    padding: 40px 20px; /* Più padding verticale per riempire lo spazio */
+} 
