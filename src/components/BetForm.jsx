@@ -16,10 +16,16 @@ export default function BetForm({ session, onSubmitSuccess }) {
   const [betType, setBetType] = useState('Singola'); // Iniziamo con Singola
   const [selectionOutcome, setSelectionOutcome] = useState(''); // Esito per la singola
   const [odds, setOdds] = useState(''); // Quota decimale
-  const [stake, setStake] = useState(''); // Puntata
+  const [stake, setStake] = useState(''); // Manteniamo lo stato per la puntata inserita dall'utente
   const [bookmakerId, setBookmakerId] = useState(''); // ID del bookmaker selezionato
   const [status, setStatus] = useState('Aperta'); // Default
   const [notes, setNotes] = useState(''); // Opzionale
+
+  // <-- NUOVI STATI per Staking -->
+  const [activePlan, setActivePlan] = useState(null); // Conterrà i dettagli del piano attivo
+  const [suggestedStake, setSuggestedStake] = useState(null); // Puntata calcolata dal piano
+  const [currentBankroll, setCurrentBankroll] = useState(null); // Necessario per calcolare lo stake
+  const [loadingPlan, setLoadingPlan] = useState(true); // Loading separato per il piano
 
   // Effetto per caricare i bookmaker al montaggio del componente
   useEffect(() => {
@@ -44,58 +50,134 @@ export default function BetForm({ session, onSubmitSuccess }) {
     fetchBookmakers();
   }, []); // Esegui solo al mount
 
-  // Gestione invio form
+  // <-- NUOVO useEffect per caricare piano attivo e bankroll -->
+  useEffect(() => {
+    const loadActivePlanAndBankroll = async () => {
+        if (!session) {
+            setLoadingPlan(false);
+            return;
+        }
+        setLoadingPlan(true);
+        setActivePlan(null); // Resetta prima di caricare
+        setSuggestedStake(null);
+        setCurrentBankroll(null);
+
+        try {
+            // Carica in parallelo profilo (per bankroll) e piano attivo
+            const [profileRes, planRes] = await Promise.all([
+                supabase
+                    .from('profiles')
+                    .select('current_bankroll, currency') // Prendi anche currency
+                    .eq('id', session.user.id)
+                    .single(),
+                supabase
+                    .from('staking_plans')
+                    .select('*')
+                    .match({ user_id: session.user.id, is_active: true }) // Cerca piano attivo
+                    .maybeSingle() // Può non esserci un piano attivo (restituisce null invece di errore)
+            ]);
+
+            // Gestione errore profilo
+            if (profileRes.error && profileRes.status !== 406) {
+                console.error("Errore caricamento profilo in BetForm:", profileRes.error);
+                // Gestisci l'errore se necessario, ma potremmo procedere senza bankroll
+            } else {
+                setCurrentBankroll(profileRes.data?.current_bankroll || 0);
+                // Potremmo usare profileRes.data?.currency se necessario mostrarlo
+            }
+
+            // Gestione errore piano
+             if (planRes.error) {
+                 console.error("Errore caricamento piano attivo:", planRes.error);
+                 // Non bloccare, l'utente può inserire stake manualmente
+             } else {
+                 setActivePlan(planRes.data); // Salva il piano attivo (o null se non trovato)
+             }
+
+        } catch (err) {
+             console.error("Errore generale caricamento dati staking:", err);
+        } finally {
+            setLoadingPlan(false);
+        }
+    };
+
+    loadActivePlanAndBankroll();
+
+  }, [session]); // Si aggiorna solo se cambia la sessione (il refresh è gestito dalla key in App.jsx)
+
+  // <-- NUOVO useEffect per calcolare lo stake suggerito -->
+   useEffect(() => {
+       if (activePlan && currentBankroll !== null) {
+           let calculated = 0;
+           const bankroll = currentBankroll; // Già numero
+           const config = activePlan.config;
+
+           if (activePlan.plan_type === 'fixed_percentage' && config?.percentage > 0) {
+               calculated = (bankroll * config.percentage) / 100;
+           } else if (activePlan.plan_type === 'fixed_unit' && config?.unit_value > 0) {
+               calculated = config.unit_value;
+           }
+
+           // Arrotonda a 2 decimali
+           setSuggestedStake(parseFloat(calculated.toFixed(2)));
+       } else {
+           setSuggestedStake(null); // Nessun suggerimento se manca piano o bankroll
+       }
+   }, [activePlan, currentBankroll]);
+
+  // Gestione invio form (modificata per includere dati staking)
   const handleSaveBet = async (submitEvent) => {
     console.log('handleSaveBet - Inizio - Valore stato eventName:', eventName);
     submitEvent.preventDefault();
-    setLoading(true);
+    setLoading(true); // Loading generale del form
     setMessage('');
 
     const parsedOdds = parseFloat(odds);
-    const parsedStake = parseFloat(stake);
+    const parsedStake = parseFloat(stake); // Puntata inserita dall'utente
     const currentBookmakerId = bookmakerId;
 
+    // Validazioni (ora includiamo lo stake inserito dall'utente)
     if (!sport || !eventName || !selectionOutcome || !odds || !stake || !currentBookmakerId) {
       setMessage('Errore: Compila tutti i campi obbligatori (Sport, Evento, Esito, Quota, Puntata, Bookmaker).');
       setLoading(false);
       return;
     }
-    if (isNaN(parsedOdds) || parsedOdds <= 1) {
+     if (isNaN(parsedOdds) || parsedOdds <= 1) {
         setMessage('Errore: La quota deve essere un numero maggiore di 1.');
         setLoading(false);
         return;
     }
-    if (isNaN(parsedStake) || parsedStake <= 0) {
-        setMessage('Errore: La puntata deve essere un numero positivo.');
+     if (isNaN(parsedStake) || parsedStake <= 0) {
+        setMessage('Errore: La puntata inserita deve essere un numero positivo.');
         setLoading(false);
         return;
     }
 
-    // Crea l'oggetto dati base con conversioni esplicite per sicurezza
+
+    // Crea l'oggetto dati base
     const originalBetData = {
-      user_id: session.user.id, // UUID di Supabase è già un tipo sicuro
-      bet_datetime: String(betDatetime), // Assicura sia stringa (da datetime-local)
-      sport: String(sport),             // Assicura sia stringa
-      league: league ? String(league) : null, // Assicura sia stringa o null
-      event: String(eventName),             // Assicura sia stringa
-      bet_type: String(betType),         // Assicura sia stringa
-      // Assicurati che i tipi dentro 'selections' siano corretti
-      selections: [{
-          outcome: String(selectionOutcome), // Assicura sia stringa
-          odds: Number(parsedOdds)          // Assicura sia numero
-      }],
-      odds: Number(parsedOdds),          // Assicura sia numero
-      stake: Number(parsedStake),         // Assicura sia numero
-      bookmaker_id: parseInt(currentBookmakerId, 10), // Già parsato
-      status: String(status),           // Assicura sia stringa
-      notes: notes ? String(notes) : null, // Assicura sia stringa o null
+      user_id: session.user.id,
+      bet_datetime: String(betDatetime),
+      sport: String(sport),
+      league: league ? String(league) : null,
+      event: String(eventName),
+      bet_type: String(betType),
+      selections: [{ outcome: String(selectionOutcome), odds: Number(parsedOdds) }],
+      odds: Number(parsedOdds),
+      stake: Number(parsedStake), // Usa la puntata inserita dall'utente
+      bookmaker_id: parseInt(currentBookmakerId, 10),
+      status: String(status),
+      notes: notes ? String(notes) : null,
+      // <-- AGGIUNGI campi staking -->
+      staking_plan_id: activePlan ? activePlan.id : null, // ID del piano attivo (o null)
+      suggested_stake: suggestedStake // Puntata suggerita (o null)
     };
 
-    // --- **Crea una copia profonda "pulita" per sicurezza** ---
+    // --- Clonazione ---
     let betDataToSend;
     try {
         betDataToSend = JSON.parse(JSON.stringify(originalBetData));
-        console.log('Dati pronti per l\'invio (clonati):', betDataToSend);
+        console.log('Dati pronti per l\'invio (con staking):', betDataToSend);
     } catch (stringifyError) {
         console.error('Errore durante la clonazione dei dati per l\'invio:', stringifyError);
         // Aggiungi log dell'oggetto originale per debuggare cosa causa l'errore
@@ -104,50 +186,37 @@ export default function BetForm({ session, onSubmitSuccess }) {
         setLoading(false);
         return;
     }
-    // --- Fine creazione copia pulita ---
+    // --- Fine clonazione ---
 
     try {
-      // Usa l'oggetto clonato e pulito per l'inserimento
+      // Inserimento
       const { error } = await supabase.from('bets').insert(betDataToSend);
-
-      if (error) {
-         console.error('Errore Supabase durante insert:', error);
-         // Prova a estrarre messaggio più utile dall'errore Supabase
-         let errorMessage = 'Errore database sconosciuto';
-         if (error.message) { errorMessage = error.message; }
-         else if (error.details) { errorMessage = error.details; }
-         else if (error.hint) { errorMessage = error.hint; }
-         // A volte l'errore circolare potrebbe essere mascherato da un errore DB generico qui
-         if (errorMessage.toLowerCase().includes('circular structure')) {
-             errorMessage = "Errore di struttura circolare rilevato durante l'invio a Supabase.";
-         }
-         throw new Error(errorMessage);
-      }
+      if (error) throw new Error(error.message || 'Errore database sconosciuto');
 
       setMessage('Scommessa salvata con successo!');
-      // Reset parziale del form
+      // Reset (manteniamo data e bookmaker?)
       setSport('');
       setLeague('');
       setEventName('');
       setSelectionOutcome('');
       setOdds('');
-      setStake('');
+      setStake(''); // Resetta puntata inserita
       setNotes('');
+      // Non resettiamo suggestedStake o activePlan qui, verranno ricaricati se il form si riapre
 
       if (onSubmitSuccess) {
-        onSubmitSuccess();
+        onSubmitSuccess(); // Chiude form e triggera refresh
       }
 
     } catch (error) {
-      // Cattura errori sia dalla clonazione sia dall'insert
-      console.error('Errore nel processo di salvataggio della scommessa:', error);
-      setMessage(`Errore: ${error.message || 'Si è verificato un problema nel salvataggio.'}`);
+       // ... (gestione errore insert come prima) ...
+       setMessage(`Errore: ${error.message || 'Si è verificato un problema nel salvataggio.'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // ----- JSX del Form -----
+  // ----- JSX del Form (modificato per mostrare suggerimento stake) -----
   return (
     <div className="form-widget">
       <h3>Aggiungi Nuova Scommessa ({betType})</h3>
@@ -235,19 +304,39 @@ export default function BetForm({ session, onSubmitSuccess }) {
           />
         </div>
 
-        {/* Puntata */}
+        {/* Sezione Puntata con Suggerimento */}
         <div>
-          <label htmlFor="stake">Puntata (€) *</label>
-          <input
-            id="stake"
-            type="number"
-            step="0.01"
-            placeholder="Es. 10.00"
-            value={stake}
-            onChange={(e) => setStake(e.target.value)}
-            required
-            min="0.01" // La puntata deve essere positiva
-          />
+          <label htmlFor="stake" style={{color: '#333'}}>Puntata (€) *</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}> {/* Flex container */}
+            <input
+              id="stake"
+              type="number"
+              step="0.01"
+              placeholder="Es. 10.00"
+              value={stake}
+              onChange={(e) => setStake(e.target.value)}
+              required
+              min="0.01"
+              style={{ padding: '5px', flexGrow: 1, minWidth: '100px' }} // Stile input puntata
+            />
+            {/* Mostra suggerimento solo se calcolato e diverso da 0 */}
+            {!loadingPlan && suggestedStake !== null && suggestedStake > 0 && (
+              <span style={{ fontSize: '0.9em', color: '#007bff', backgroundColor: '#e7f3ff', padding: '5px 8px', borderRadius: '4px' }}>
+                Suggerito: {suggestedStake.toFixed(2)} €
+                {activePlan && <small> ({activePlan.plan_type === 'fixed_percentage' ? `${activePlan.config.percentage}%` : `Unità ${activePlan.config.unit_value}€`})</small>}
+                 {/* Bottone Opzionale per applicare suggerimento */}
+                 <button
+                     type="button" // IMPORTANTE: type="button" per non inviare il form
+                     onClick={() => setStake(suggestedStake)}
+                     title="Applica puntata suggerita"
+                     style={{ marginLeft: '8px', padding: '2px 6px', fontSize: '0.8em', cursor: 'pointer' }}
+                 >
+                     Applica
+                 </button>
+              </span>
+            )}
+             {loadingPlan && <span style={{fontSize: '0.8em', color: '#777'}}>Carico piano...</span>}
+          </div>
         </div>
 
         {/* Bookmaker */}

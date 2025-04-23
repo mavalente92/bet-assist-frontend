@@ -20,50 +20,66 @@ function App() {
   const [refreshStatsToggle, setRefreshStatsToggle] = useState(false)
   const [refreshPlansToggle, setRefreshPlansToggle] = useState(false)
 
+  // --- useEffect per Sessione INIZIALE e Loading ---
   useEffect(() => {
-    // Tenta di ottenere la sessione corrente all'avvio dell'app
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false) // Abbiamo finito di caricare la sessione iniziale
+    setLoading(true) // Inizia caricamento
+    console.log("Checking initial session...")
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      console.log("Initial session check complete.", initialSession?.user?.id || 'No session')
+      setSession(initialSession) // Imposta sessione iniziale (potrebbe essere null)
     }).catch((error) => {
-        console.error("Error getting initial session:", error);
-        setLoading(false); // Anche in caso di errore, smettiamo di caricare
-    });
-
-    // Ascolta i cambiamenti nello stato di autenticazione (login, logout)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth state changed:", _event, session); // Log per debug
-      setSession(session)
+      console.error("Error getting initial session:", error)
+      setSession(null) // Imposta null anche in caso di errore
+    }).finally(() => {
+      setLoading(false) // Fine caricamento iniziale, SEMPRE
     })
 
-    // Pulisce la sottoscrizione quando il componente viene smontato
-    return () => subscription.unsubscribe()
-  }, []) // L'array vuoto [] assicura che useEffect venga eseguito solo al mount
+    // Questo effetto viene eseguito solo al mount del componente App
+  }, []) // Array dipendenze VUOTO
 
-  // Se stiamo ancora caricando la sessione, mostra un messaggio
-  if (loading) {
-    return <div>Caricamento sessione...</div>
-  }
+  // --- useEffect per ASCOLTARE i cambiamenti di stato ---
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Logga l'evento ma aggiorna lo stato session DI DIRETTAMENTE
+      // Non serve più la logica complessa con prevSession ora che l'iniziale è gestito sopra
+      console.log(`>>> Auth state changed! Event: ${_event}`, session?.user?.id || null)
+      setSession(session) // Aggiorna semplicemente allo stato ricevuto
+                           // Questo gestirà SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED etc.
+                           // Il refresh su focus con SIGNED_IN non dovrebbe causare loop
+                           // perché questo useEffect non dipende da 'loading'.
+    })
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log("Unsubscribing from onAuthStateChange")
+      subscription.unsubscribe()
+    }
+
+    // Anche questo effetto viene eseguito solo al mount per impostare l'ascoltatore
+  }, []) // Array dipendenze VUOTO
 
   // Funzione da passare a BetForm per sapere quando chiuderlo (opzionale)
   const handleBetSubmitSuccess = () => {
-      console.log("Bet submitted successfully!");
-      setShowBetForm(false);
-      setRefreshBetsToggle(prev => !prev);
-      setRefreshStatsToggle(prev => !prev);
-      setRefreshPlansToggle(prev => !prev);
+      console.log("Bet submitted successfully!")
+      setShowBetForm(false)
+      setRefreshBetsToggle(prev => !prev)
+      setRefreshStatsToggle(prev => !prev)
+      setRefreshPlansToggle(prev => !prev)
   }
 
   // NUOVA FUNZIONE per triggerare refresh dopo update profilo/status
   const handlePossibleProfileUpdate = () => {
-      console.log("Profile or status possibly updated, triggering refresh...");
+      console.log("Profile or status possibly updated, triggering refresh...")
       // Usiamo il toggle delle statistiche/piani come segnale generico di refresh profilo
-      setRefreshStatsToggle(prev => !prev);
-      setRefreshPlansToggle(prev => !prev);
+      setRefreshStatsToggle(prev => !prev)
+      setRefreshPlansToggle(prev => !prev)
       // Potremmo anche aggiornare quello delle scommesse se necessario
-      // setRefreshBetsToggle(prev => !prev);
+      // setRefreshBetsToggle(prev => !prev)
+  }
+
+  // Se stiamo ancora caricando la sessione INIZIALE, mostra un messaggio
+  if (loading) {
+    return <div>Caricamento sessione iniziale...</div>
   }
 
   return (
@@ -75,18 +91,18 @@ function App() {
         // Se c'è sessione, mostra l'area riservata (es. la dashboard)
         <div>
             {/* Dashboard Statistiche (in cima) */}
-            <DashboardStats key={`stats-${session.user.id}-${refreshStatsToggle}`} session={session} />
+            <DashboardStats key={`stats-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
 
             {/* Calcolatore Stake Semplice */}
-            <SimpleStakeCalculator key={`calculator-${session.user.id}-${refreshStatsToggle}`} session={session} />
+            <SimpleStakeCalculator key={`calculator-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
             <hr style={{margin: '20px 0'}}/>
 
             {/* Analisi Avanzate (Premium) */}
-            <AdvancedAnalytics key={`adv-stats-${session.user.id}-${refreshStatsToggle}`} session={session} />
+            <AdvancedAnalytics key={`adv-stats-${session.user.id}`} session={session} refreshToggle={refreshStatsToggle} />
             <hr style={{margin: '20px 0'}}/>
 
             {/* Gestione Piani Staking (Premium) */}
-            <StakingPlanner key={`planner-${session.user.id}-${refreshPlansToggle}`} session={session} onPlansChange={handlePossibleProfileUpdate}/>
+            <StakingPlanner key={`planner-${session.user.id}`} session={session} onPlansChange={handlePossibleProfileUpdate} refreshToggle={refreshPlansToggle} />
             <hr style={{margin: '20px 0'}}/>
 
             {/* Mostra il bottone per aggiungere scommessa SOLO se il form NON è già visibile */}
@@ -113,15 +129,15 @@ function App() {
             )}
 
             {/* Storico Scommesse */}
-            {/* Passiamo refreshBetsToggle come parte della key per forzare il re-fetch */}
-            <BetHistory key={`history-${session.user.id}-${refreshBetsToggle}`} session={session} />
+            <BetHistory key={`history-${session.user.id}`} session={session} refreshToggle={refreshBetsToggle} />
             <hr style={{margin: '20px 0'}}/> {/* Separatore */}
 
             {/* Mostra sempre il componente Account sotto */}
             <Account
-                key={`account-${session.user.id}-${refreshBetsToggle}`}
+                key={`account-${session.user.id}`}
                 session={session}
                 onProfileUpdate={handlePossibleProfileUpdate}
+                refreshToggle={refreshStatsToggle}
             />
         </div>
       )}

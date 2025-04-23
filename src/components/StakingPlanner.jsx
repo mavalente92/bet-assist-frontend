@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 // Riceve session e onPlansChange
-export default function StakingPlanner({ session, onPlansChange }) {
+export default function StakingPlanner({ session, onPlansChange, refreshToggle }) {
   console.log("StakingPlanner received props - session exists:", !!session);
 
   const [plans, setPlans] = useState([]);
@@ -17,11 +17,14 @@ export default function StakingPlanner({ session, onPlansChange }) {
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [addFormMessage, setAddFormMessage] = useState('');
 
-  // Rinominiamo fetchPlans per chiarezza
+  // Definisci loadPlans fuori dall'useEffect per poterla chiamare da altre parti
   const loadPlans = async () => {
-    // Non impostare loading qui, è gestito dall'useEffect principale
-    // setLoading(true);
     setError('');
+    if (!session?.user?.id) {
+        console.log("StakingPlanner (loadPlans): No user ID, skipping fetch.");
+        setPlans([]);
+        return;
+    }
     try {
       const { data, error } = await supabase
         .from('staking_plans')
@@ -34,27 +37,25 @@ export default function StakingPlanner({ session, onPlansChange }) {
     } catch (err) {
       console.error("Errore caricamento piani staking:", err);
       setError(`Errore caricamento piani: ${err.message}`);
-       setPlans([]); // Resetta piani in caso di errore
+      setPlans([]);
     }
-    // Non impostare setLoading(false) qui, è gestito dall'useEffect principale
-    // finally { setLoading(false); }
   };
 
   useEffect(() => {
     const checkStatusAndLoadPlans = async () => {
-        if (!session) {
+        setLoading(true);
+        setError('');
+        setPlans([]);
+        setIsUserPremium(false);
+
+        if (!session?.user?.id) {
+            console.log("StakingPlanner: No user ID, skipping check.");
             setLoading(false);
-            setIsUserPremium(false);
             return;
         }
 
-        setLoading(true);
-        setError('');
-        setPlans([]); // Pulisci dati vecchi
-
         let currentStatus = 'free';
         try {
-            // 1. Recupera lo stato dell'utente
             console.log("StakingPlanner: Checking user status...");
             const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
@@ -67,27 +68,24 @@ export default function StakingPlanner({ session, onPlansChange }) {
              setIsUserPremium(currentStatus === 'premium');
              console.log("StakingPlanner: User status is", currentStatus);
 
-            // 2. Se è premium, carica i piani
             if (currentStatus === 'premium') {
                 console.log("StakingPlanner: User is premium, loading plans...");
-                await loadPlans(); // Aspetta che il caricamento dei piani finisca
+                await loadPlans();
             } else {
                  console.log("StakingPlanner: User is not premium, skipping plans load.");
-                 setShowAddForm(false); // Nascondi form se non premium
+                 setShowAddForm(false);
             }
-
         } catch (err) {
              console.error("StakingPlanner: Error checking status or loading plans:", err);
              setError(`Errore generale: ${err.message}`);
              setIsUserPremium(false);
         } finally {
-             setLoading(false); // Fine caricamento (status e/o piani)
+             setLoading(false);
         }
     };
 
     checkStatusAndLoadPlans();
-
-  }, [session]); // Dipende solo da session
+  }, [session?.user?.id, refreshToggle]);
 
   // Funzione per gestire il salvataggio di un nuovo piano
   const handleAddPlan = async (e) => {
@@ -98,7 +96,6 @@ export default function StakingPlanner({ session, onPlansChange }) {
     let config = {};
     const numericValue = parseFloat(newPlanValue);
 
-    // Validazione input
     if (isNaN(numericValue) || numericValue <= 0) {
         setAddFormMessage('Errore: Inserisci un valore numerico positivo valido.');
         setIsSavingPlan(false);
@@ -106,7 +103,7 @@ export default function StakingPlanner({ session, onPlansChange }) {
     }
 
     if (newPlanType === 'fixed_percentage') {
-        if (numericValue > 100) { // Controllo aggiuntivo per percentuale
+        if (numericValue > 100) {
             setAddFormMessage('Errore: La percentuale non può superare 100.');
             setIsSavingPlan(false);
             return;
@@ -125,16 +122,14 @@ export default function StakingPlanner({ session, onPlansChange }) {
         user_id: session.user.id,
         plan_type: newPlanType,
         config: config,
-        is_active: false // I nuovi piani non sono attivi di default
+        is_active: false
       });
-
       if (error) throw error;
 
       setAddFormMessage('Piano salvato con successo!');
-      setNewPlanValue(''); // Resetta input
-      setShowAddForm(false); // Chiudi form
-      await loadPlans(); // Ricarica la lista
-      // ---> CHIAMA CALLBACK <---
+      setNewPlanValue('');
+      setShowAddForm(false);
+      await loadPlans();
       if (onPlansChange) onPlansChange();
 
     } catch (err) {
@@ -147,36 +142,32 @@ export default function StakingPlanner({ session, onPlansChange }) {
 
   // Funzione per attivare un piano (disattivando gli altri)
   const setActivePlan = async (planIdToActivate) => {
-    setLoading(true); // Riutilizziamo il loading principale per l'attivazione
+    // Use general loading indicator for activation as well
+    setLoading(true);
     setError('');
     try {
-        // 1. Disattiva tutti gli altri piani dell'utente (transazione sarebbe meglio, ma facciamolo in due passi)
         const { error: deactivateError } = await supabase
             .from('staking_plans')
             .update({ is_active: false, updated_at: new Date() })
-            .match({ user_id: session.user.id, is_active: true }); // Disattiva solo quelli attualmente attivi
-
+            .match({ user_id: session.user.id, is_active: true });
         if (deactivateError) throw deactivateError;
 
-        // 2. Attiva il piano selezionato
         const { error: activateError } = await supabase
             .from('staking_plans')
             .update({ is_active: true, updated_at: new Date() })
             .eq('id', planIdToActivate);
-
         if (activateError) throw activateError;
 
-        // Ricarica la lista per riflettere i cambiamenti
         await loadPlans();
-        // ---> CHIAMA CALLBACK <---
         if (onPlansChange) onPlansChange();
-
     } catch (err) {
         console.error("Errore attivazione piano:", err);
         setError(`Errore attivazione: ${err.message}`);
-        setLoading(false); // Assicurati che loading si fermi in caso di errore
+    } finally {
+      // setLoading(false) will be called by checkStatusAndLoadPlans via refreshToggle
+      // We might need to set loading false here if refreshToggle approach isn't immediate enough
+       setLoading(false); // Let's set it false here explicitly after activation attempt
     }
-    // setLoading(false) viene chiamato da loadPlans() nel finally implicito
   };
 
   // Funzione per eliminare un piano
@@ -184,6 +175,7 @@ export default function StakingPlanner({ session, onPlansChange }) {
         if (!window.confirm("Sei sicuro di voler eliminare questo piano?")) {
             return;
         }
+        // Use general loading indicator
         setLoading(true);
         setError('');
         try {
@@ -191,25 +183,40 @@ export default function StakingPlanner({ session, onPlansChange }) {
                 .from('staking_plans')
                 .delete()
                 .eq('id', planIdToDelete);
-
             if (error) throw error;
 
-            // Ricarica la lista
             await loadPlans();
-            // ---> CHIAMA CALLBACK <---
             if (onPlansChange) onPlansChange();
-
         } catch (err) {
             console.error("Errore eliminazione piano:", err);
             setError(`Errore eliminazione: ${err.message}`);
-            setLoading(false);
+        } finally {
+             setLoading(false); // Set loading false here too
         }
     };
 
+  // Funzione per disattivare un piano
+  const deactivatePlan = async (planIdToDeactivate) => {
+    setLoading(true);
+    setError('');
+    try {
+        const { error } = await supabase
+            .from('staking_plans')
+            .update({ is_active: false, updated_at: new Date() })
+            .eq('id', planIdToDeactivate);
+        if (error) throw error;
+
+        await loadPlans();
+        if (onPlansChange) onPlansChange();
+    } catch (err) {
+        console.error("Errore disattivazione piano:", err);
+        setError(`Errore disattivazione: ${err.message}`);
+    } finally {
+        setLoading(false);
+    }
+  };
 
   // ---- Rendering ----
-
-  // Usa lo stato locale isUserPremium per il rendering condizionale
   if (!isUserPremium && !loading) {
      return (
        <div style={{...widgetStyleStaking, backgroundColor: '#fff8e1', borderColor: '#ffe57f'}}>
@@ -219,7 +226,6 @@ export default function StakingPlanner({ session, onPlansChange }) {
      );
   }
 
-  // Contenuto per utenti premium
   return (
     <div className="staking-widget" style={widgetStyleStaking}>
       <h3 style={{ color: '#333' }}>Gestione Piani di Staking (Premium)</h3>
@@ -227,79 +233,99 @@ export default function StakingPlanner({ session, onPlansChange }) {
       {loading && <p style={{color: '#555'}}>Caricamento piani...</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {/* Lista dei piani esistenti */}
-      {!loading && !error && plans.length > 0 && (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {plans.map((plan) => (
-            <li key={plan.id} style={planItemStyle}>
-              <div style={planDetailsStyle}>
-                <strong>{plan.plan_type === 'fixed_percentage' ? 'Percentuale Fissa' : 'Unità Fissa'}</strong>:
-                {plan.plan_type === 'fixed_percentage' && ` ${plan.config.percentage}%`}
-                {plan.plan_type === 'fixed_unit' && ` ${plan.config.unit_value} €/unità`}
-                {plan.is_active && <span style={activeBadgeStyle}> ATTIVO</span>}
-              </div>
-              <div style={planActionsStyle}>
-                {!plan.is_active && (
-                  <button onClick={() => setActivePlan(plan.id)} style={actionButtonStyle}>
-                    Attiva
-                  </button>
-                )}
-                 <button onClick={() => deletePlan(plan.id)} style={{...actionButtonStyle, backgroundColor: '#dc3545', marginLeft: '5px'}}>
-                     Elimina
-                 </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!loading && !error && plans.length === 0 && (
-        <p style={{color: '#777', fontStyle: 'italic'}}>Nessun piano di staking definito.</p>
-      )}
+      {!loading && isUserPremium && !error && (
+          <>
+            {plans.length > 0 ? (
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                {plans.map((plan) => (
+                    <li key={plan.id} style={planItemStyle}>
+                    <div style={planDetailsStyle}>
+                        <strong>{plan.plan_type === 'fixed_percentage' ? 'Percentuale Fissa' : 'Unità Fissa'}</strong>:
+                        {plan.plan_type === 'fixed_percentage' && ` ${plan.config.percentage}%`}
+                        {plan.plan_type === 'fixed_unit' && ` ${plan.config.unit_value} €/unità`}
+                        {plan.is_active && <span style={activeBadgeStyle}> ATTIVO</span>}
+                    </div>
+                    <div style={planActionsStyle}>
+                        {plan.is_active ? (
+                        <button
+                            onClick={() => deactivatePlan(plan.id)}
+                            style={{...actionButtonStyle, backgroundColor: '#ffc107', color: '#333'}}
+                            title="Disattiva questo piano"
+                            disabled={loading} // Disable buttons during general loading
+                        >
+                            Disattiva
+                        </button>
+                        ) : (
+                        <button
+                            onClick={() => setActivePlan(plan.id)}
+                            style={actionButtonStyle}
+                            title="Imposta come piano attivo"
+                            disabled={loading} // Disable buttons during general loading
+                        >
+                            Attiva
+                        </button>
+                        )}
+                        <button
+                            onClick={() => deletePlan(plan.id)}
+                            style={{...actionButtonStyle, backgroundColor: '#dc3545', marginLeft: '5px'}}
+                            title="Elimina questo piano"
+                            disabled={loading} // Disable buttons during general loading
+                        >
+                            Elimina
+                        </button>
+                    </div>
+                    </li>
+                ))}
+                </ul>
+            ) : (
+                <p style={{color: '#777', fontStyle: 'italic'}}>Nessun piano di staking definito.</p>
+            )}
 
-      <hr style={{margin: '20px 0'}} />
+            <hr style={{margin: '20px 0'}} />
 
-      {/* Bottone/Form per aggiungere nuovo piano */}
-      {!showAddForm ? (
-        <button onClick={() => setShowAddForm(true)}>+ Aggiungi Nuovo Piano</button>
-      ) : (
-        <div>
-          <h4 style={{color: '#333', marginTop: '0'}}>Nuovo Piano</h4>
-          {addFormMessage && <p style={{ color: addFormMessage.startsWith('Errore') ? 'red' : 'green' }}>{addFormMessage}</p>}
-          <form onSubmit={handleAddPlan}>
-            <div style={formGroupStyle}>
-              <label htmlFor="planType" style={{color: '#333'}}>Tipo:</label>
-              <select id="planType" value={newPlanType} onChange={(e) => setNewPlanType(e.target.value)} style={{marginLeft: '10px'}}>
-                <option value="fixed_percentage">Percentuale Fissa (%)</option>
-                <option value="fixed_unit">Unità Fissa (€)</option>
-                {/* Aggiungere altri tipi qui in futuro */}
-              </select>
-            </div>
-            <div style={formGroupStyle}>
-              <label htmlFor="planValue" style={{color: '#333'}}>
-                  {newPlanType === 'fixed_percentage' ? 'Percentuale:' : 'Valore Unità:'}
-              </label>
-              <input
-                id="planValue"
-                type="number"
-                step="any"
-                min="0.01"
-                placeholder={newPlanType === 'fixed_percentage' ? 'Es. 2' : 'Es. 10'}
-                value={newPlanValue}
-                onChange={(e) => setNewPlanValue(e.target.value)}
-                required
-                style={{marginLeft: '10px'}}
-              />
-            </div>
-            <div style={{marginTop: '15px'}}>
-              <button type="submit" disabled={isSavingPlan} style={{marginRight: '10px'}}>
-                {isSavingPlan ? 'Salvataggio...' : 'Salva Piano'}
-              </button>
-              <button type="button" onClick={() => { setShowAddForm(false); setAddFormMessage(''); }}>
-                Annulla
-              </button>
-            </div>
-          </form>
-        </div>
+            {!showAddForm ? (
+                <button onClick={() => setShowAddForm(true)} disabled={loading}>+ Aggiungi Nuovo Piano</button>
+            ) : (
+                <div>
+                <h4 style={{color: '#333', marginTop: '0'}}>Nuovo Piano</h4>
+                {addFormMessage && <p style={{ color: addFormMessage.startsWith('Errore') ? 'red' : 'green' }}>{addFormMessage}</p>}
+                <form onSubmit={handleAddPlan}>
+                    <div style={formGroupStyle}>
+                    <label htmlFor="planType" style={{color: '#333'}}>Tipo:</label>
+                    <select id="planType" value={newPlanType} onChange={(e) => setNewPlanType(e.target.value)} style={{marginLeft: '10px'}} disabled={isSavingPlan}>
+                        <option value="fixed_percentage">Percentuale Fissa (%)</option>
+                        <option value="fixed_unit">Unità Fissa (€)</option>
+                    </select>
+                    </div>
+                    <div style={formGroupStyle}>
+                    <label htmlFor="planValue" style={{color: '#333'}}>
+                        {newPlanType === 'fixed_percentage' ? 'Percentuale:' : 'Valore Unità:'}
+                    </label>
+                    <input
+                        id="planValue"
+                        type="number"
+                        step="any"
+                        min="0.01"
+                        placeholder={newPlanType === 'fixed_percentage' ? 'Es. 2' : 'Es. 10'}
+                        value={newPlanValue}
+                        onChange={(e) => setNewPlanValue(e.target.value)}
+                        required
+                        style={{marginLeft: '10px'}}
+                        disabled={isSavingPlan}
+                    />
+                    </div>
+                    <div style={{marginTop: '15px'}}>
+                    <button type="submit" disabled={isSavingPlan} style={{marginRight: '10px'}}>
+                        {isSavingPlan ? 'Salvataggio...' : 'Salva Piano'}
+                    </button>
+                    <button type="button" onClick={() => { setShowAddForm(false); setAddFormMessage(''); }} disabled={isSavingPlan}>
+                        Annulla
+                    </button>
+                    </div>
+                </form>
+                </div>
+            )}
+          </>
       )}
     </div>
   );
@@ -347,4 +373,4 @@ const activeBadgeStyle = {
 };
 const formGroupStyle = {
     marginBottom: '10px',
-};
+}; 

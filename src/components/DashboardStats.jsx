@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function DashboardStats({ session }) {
+export default function DashboardStats({ session, refreshToggle }) {
   const [stats, setStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [errorStats, setErrorStats] = useState('');
@@ -10,8 +10,13 @@ export default function DashboardStats({ session }) {
     const fetchStats = async () => {
       setLoadingStats(true);
       setErrorStats('');
+      if (!session?.user?.id) {
+         console.log("DashboardStats: No user ID, skipping fetch.");
+         setLoadingStats(false);
+         setStats(null); // Pulisci statistiche vecchie
+         return;
+      }
       try {
-        // Chiama la funzione SQL creata 'get_user_base_stats' passando l'user_id
         const { data, error } = await supabase.rpc('get_user_base_stats', {
           p_user_id: session.user.id
         });
@@ -31,10 +36,8 @@ export default function DashboardStats({ session }) {
       }
     };
 
-    if (session) {
-      fetchStats();
-    }
-  }, [session]); // Riesegue se la sessione cambia
+    fetchStats();
+  }, [session?.user?.id, refreshToggle]);
 
   // Funzione helper per formattare numeri (es. P/L, ROI)
   const formatNumber = (num, decimals = 2) => {

@@ -1,129 +1,118 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 // Riceve la sessione come prop da App.jsx
-export default function Account({ session, onProfileUpdate }) {
-  const [loading, setLoading] = useState(true)
-  const [username, setUsername] = useState(null)
-  const [fullName, setFullName] = useState(null)
-  const [initialBankroll, setInitialBankroll] = useState(null)
-  const [currentBankroll, setCurrentBankroll] = useState(null) // Lo mostriamo solo per info
-  const [currency, setCurrency] = useState('EUR') // Default
-  const [subscriptionStatus, setSubscriptionStatus] = useState('free'); // <-- NUOVO STATO
-  const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false); // <-- NUOVO STATO per caricamento bottone
+export default function Account({ session, onProfileUpdate, refreshToggle }) {
+  const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState(null);
+  const [fullName, setFullName] = useState(null);
+  const [initialBankroll, setInitialBankroll] = useState(null);
+  const [currentBankroll, setCurrentBankroll] = useState(null); // Lo mostriamo solo per info
+  const [currency, setCurrency] = useState('EUR'); // Default
+  const [subscriptionStatus, setSubscriptionStatus] = useState('free');
+  const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false);
 
   useEffect(() => {
-    let ignore = false
+    let ignore = false;
     async function getProfile() {
-      setLoading(true)
-      // Assicurati che session e session.user esistano prima di procedere
-      if (!session?.user) {
-          console.error("Session or user not found in Account component.");
+      setLoading(true);
+      if (!session?.user?.id) {
+          console.error("Account: No user ID, skipping profile fetch.");
+          setUsername('');
+          setFullName('');
+          setInitialBankroll(0);
+          setCurrentBankroll(0);
+          setCurrency('EUR');
+          setSubscriptionStatus('free');
           setLoading(false);
-          return; // Esce se non c'è utente nella sessione
+          return;
       }
       const { user } = session;
 
       try {
-        // Seleziona i dati dalla tabella 'profiles' usando l'ID utente
         const { data, error, status } = await supabase
           .from('profiles')
           .select(`username, full_name, initial_bankroll, current_bankroll, currency, subscription_status`)
-          .eq('id', user.id) // Filtra per l'ID dell'utente loggato
-          .single() // Ci aspettiamo un solo risultato
+          .eq('id', user.id)
+          .single();
 
         if (!ignore) {
-          if (error && status !== 406) { // 406 significa che non ha trovato righe, che è normale la prima volta
-            console.warn(error)
-            throw error
+          if (error && status !== 406) {
+            console.warn(error);
+            throw error;
           }
-
           if (data) {
-            setUsername(data.username)
-            setFullName(data.full_name)
-            setInitialBankroll(data.initial_bankroll)
-            setCurrentBankroll(data.current_bankroll)
-            setCurrency(data.currency || 'EUR') // Usa EUR se non impostato
-            setSubscriptionStatus(data.subscription_status || 'free'); // <-- Imposta stato abbonamento
+            setUsername(data.username);
+            setFullName(data.full_name);
+            setInitialBankroll(data.initial_bankroll);
+            setCurrentBankroll(data.current_bankroll);
+            setCurrency(data.currency || 'EUR');
+            setSubscriptionStatus(data.subscription_status || 'free');
           } else {
-            // Se non ci sono dati (es. primo login dopo la registrazione),
-            // potremmo voler inizializzare i campi qui o lasciare che l'utente li imposti.
             console.log("No profile data found for user:", user.id);
-            // Potremmo impostare valori di default per i campi modificabili
-            setInitialBankroll(0); // Ad esempio, inizia con 0 se non c'è un profilo
+            setInitialBankroll(0);
             setCurrency('EUR');
-            setSubscriptionStatus('free'); // Default a free se non c'è profilo
+            setSubscriptionStatus('free');
           }
         }
       } catch (error) {
-        // Potrebbe essere utile mostrare un messaggio all'utente qui
-        alert(`Errore nel caricamento del profilo: ${error.message}`)
+        alert(`Errore nel caricamento del profilo: ${error.message}`);
+        setUsername('');
+        setFullName('');
+        setInitialBankroll(0);
+        setCurrentBankroll(0);
+        setCurrency('EUR');
+        setSubscriptionStatus('free');
       } finally {
-         // Assicurati che lo spinner di caricamento scompaia solo se non siamo stati ignorati
          if (!ignore) {
-            setLoading(false)
+            setLoading(false);
          }
       }
     }
-
-    getProfile()
-
-    // Funzione di cleanup per evitare aggiornamenti su componente smontato
+    getProfile();
     return () => {
-      ignore = true
-    }
-  }, [session]) // Riesegue l'effetto se la sessione cambia
+      ignore = true;
+    };
+  }, [session?.user?.id, refreshToggle]);
 
   async function updateProfile(event) {
-    event.preventDefault()
-    setLoading(true)
-    const { user } = session
-
+    event.preventDefault();
+    setLoading(true);
+    const { user } = session;
     const updates = {
-      id: user.id, // Chiave primaria
+      id: user.id,
       username,
       full_name: fullName,
       initial_bankroll: initialBankroll,
       currency,
-      updated_at: new Date(), // Aggiorna il timestamp
-    }
+      updated_at: new Date(),
+    };
 
     try {
-      // Usa upsert: inserisce se non esiste, aggiorna se esiste
-      const { error } = await supabase.from('profiles').upsert(updates)
-
+      const { error } = await supabase.from('profiles').upsert(updates);
       if (error) {
-        throw error
+        throw error;
       }
-       // Se l'upsert va a buon fine E il bankroll corrente è 0 (o non impostato),
-       // aggiorniamo anche quello al valore iniziale. Questo succede tipicamente
-       // la prima volta che l'utente imposta il bankroll.
-       // In seguito, il bankroll corrente verrà aggiornato dalla logica delle scommesse.
-       if (initialBankroll != null && (!currentBankroll || currentBankroll === 0)) {
+      if (initialBankroll != null && (!currentBankroll || currentBankroll === 0)) {
            const { error: bankrollError } = await supabase
                .from('profiles')
                .update({ current_bankroll: initialBankroll })
                .eq('id', user.id);
            if (bankrollError) {
                console.warn("Could not set initial current_bankroll:", bankrollError);
-               // Non blocchiamo per questo, ma logghiamo l'errore
            } else {
-               // Aggiorna lo stato locale per riflettere la modifica
                setCurrentBankroll(initialBankroll);
            }
        }
-
-      alert('Profilo aggiornato con successo!')
-      // ---> CHIAMA CALLBACK <---
+      alert('Profilo aggiornato con successo!');
       if (onProfileUpdate) onProfileUpdate();
     } catch (error) {
-      alert(`Errore nell'aggiornamento del profilo: ${error.message}`)
+      alert(`Errore nell'aggiornamento del profilo: ${error.message}`);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  // <-- NUOVA FUNZIONE per cambiare stato abbonamento -->
   const toggleSubscription = async () => {
     setIsUpdatingSubscription(true);
     const newStatus = subscriptionStatus === 'free' ? 'premium' : 'free';
@@ -132,16 +121,13 @@ export default function Account({ session, onProfileUpdate }) {
             .from('profiles')
             .update({ subscription_status: newStatus, updated_at: new Date() })
             .eq('id', session.user.id);
-
         if (error) throw error;
-
         setSubscriptionStatus(newStatus);
         alert(`Stato abbonamento cambiato in: ${newStatus}`);
-        // ---> CHIAMA CALLBACK <---
         if (onProfileUpdate) onProfileUpdate();
     } catch(error) {
         console.error("Errore aggiornamento abbonamento:", error);
-        alert(`Errore aggiornamento abbonamento: ${error.message}`)
+        alert(`Errore aggiornamento abbonamento: ${error.message}`);
     } finally {
         setIsUpdatingSubscription(false);
     }
@@ -181,12 +167,11 @@ export default function Account({ session, onProfileUpdate }) {
             <input
               id="initialBankroll"
               type="number"
-              step="0.01" // Permette decimali
-              value={initialBankroll || 0} // Mostra 0 se null
+              step="0.01"
+              value={initialBankroll || 0}
               onChange={(e) => setInitialBankroll(parseFloat(e.target.value) || 0)}
             />
           </div>
-           {/* Mostra il bankroll corrente solo a scopo informativo */}
            {currentBankroll != null && (
                 <div>
                     <label style={{color: '#333'}}>Bankroll Attuale ({currency})</label>
@@ -203,7 +188,6 @@ export default function Account({ session, onProfileUpdate }) {
                 <option value="EUR">EUR (€)</option>
                 <option value="USD">USD ($)</option>
                 <option value="GBP">GBP (£)</option>
-                {/* Aggiungi altre valute se necessario */}
             </select>
           </div>
 
@@ -215,12 +199,11 @@ export default function Account({ session, onProfileUpdate }) {
         </form>
       )}
 
-       {/* <-- NUOVA SEZIONE: Stato Abbonamento (Solo per Test) --> */}
-       {!loading && ( // Mostra solo se il profilo è caricato
+       {!loading && (
             <div style={{ marginTop: '20px', padding: '10px', border: '1px dashed blue', borderRadius: '5px' }}>
                 <h4 style={{color: '#333', marginTop: '0'}}>Stato Abbonamento (Test)</h4>
                 <p style={{color: '#555'}}>Stato attuale: <strong style={{color: subscriptionStatus === 'premium' ? 'gold' : '#555'}}>{subscriptionStatus}</strong></p>
-                <button onClick={toggleSubscription} disabled={isUpdatingSubscription}>
+                <button onClick={toggleSubscription} disabled={isUpdatingSubscription || loading}>
                     {isUpdatingSubscription ? 'Aggiornamento...' : (subscriptionStatus === 'free' ? 'Passa a Premium (Test)' : 'Torna a Free (Test)')}
                 </button>
                 <p style={{fontSize: '0.8em', color: '#777', marginTop: '10px'}}>Questo bottone serve solo per testare la visualizzazione delle funzionalità premium.</p>
@@ -228,4 +211,4 @@ export default function Account({ session, onProfileUpdate }) {
        )}
     </div>
   )
-}
+} 

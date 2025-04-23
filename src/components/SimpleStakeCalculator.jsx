@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function SimpleStakeCalculator({ session }) {
+export default function SimpleStakeCalculator({ session, refreshToggle }) {
   const [currentBankroll, setCurrentBankroll] = useState(null);
   const [currency, setCurrency] = useState('EUR');
   const [percentage, setPercentage] = useState(1); // Default 1%
@@ -13,6 +13,14 @@ export default function SimpleStakeCalculator({ session }) {
   const fetchBankrollData = async () => {
     setLoadingBankroll(true);
     setErrorBankroll('');
+    // Add check for user ID
+    if (!session?.user?.id) {
+        console.log("SimpleStakeCalculator: No user ID, skipping fetch.");
+        setCurrentBankroll(0); // Default to 0 if no user
+        setCurrency('EUR');
+        setLoadingBankroll(false);
+        return;
+    }
     try {
       const { data, error, status } = await supabase
         .from('profiles')
@@ -40,12 +48,11 @@ export default function SimpleStakeCalculator({ session }) {
     }
   };
 
-  // useEffect per caricare i dati al mount e se la sessione cambia
+  // useEffect per caricare i dati al mount e se la sessione/user cambia
   useEffect(() => {
-    if (session) {
-      fetchBankrollData();
-    }
-  }, [session]);
+    // Moved the check inside fetchBankrollData
+    fetchBankrollData();
+  }, [session?.user?.id, refreshToggle]); // Change dependency
 
   // useEffect per ricalcolare lo stake quando il bankroll o la percentuale cambiano
   useEffect(() => {
@@ -150,4 +157,4 @@ const valueResultStyle = {
     fontWeight: 'bold',
     fontSize: '1.1em',
     color: '#007bff', // Colore blu per evidenziare il risultato? O lascia '#333'
-};
+}; 

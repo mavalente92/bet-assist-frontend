@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 // Riceve la sessione come prop
-export default function BetHistory({ session }) {
+export default function BetHistory({ session, refreshToggle }) {
   const [bets, setBets] = useState([]);
   const [loadingBets, setLoadingBets] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -11,6 +11,13 @@ export default function BetHistory({ session }) {
   const fetchBets = async () => {
     setLoadingBets(true);
     setErrorMessage('');
+    // Add check for user ID
+    if (!session?.user?.id) {
+        console.log("BetHistory: No user ID, skipping fetch.");
+        setLoadingBets(false);
+        setBets([]); // Clear old bets if any
+        return;
+    }
     try {
       const { data, error } = await supabase
         .from('bets')
@@ -46,12 +53,12 @@ export default function BetHistory({ session }) {
     }
   };
 
-  // useEffect per chiamare fetchBets al montaggio e quando la sessione cambia
+  // useEffect per chiamare fetchBets al mount e quando la sessione/user cambia
   useEffect(() => {
-    if (session) {
-      fetchBets();
-    }
-  }, [session]); // Dipende dalla sessione
+    // Moved the check inside fetchBets
+    fetchBets();
+  // Change dependency from 'session' to 'session?.user?.id'
+  }, [session?.user?.id, refreshToggle]);
 
   // Funzione per formattare la data/ora in modo leggibile
   const formatDateTime = (isoString) => {
@@ -156,4 +163,4 @@ const tableCellStyle = {
   padding: '8px',
   textAlign: 'left',
   verticalAlign: 'top', // Allinea in alto se il contenuto va a capo
-};
+}; 

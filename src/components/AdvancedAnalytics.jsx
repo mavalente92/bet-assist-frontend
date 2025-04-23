@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 // Riceve session come prop
-export default function AdvancedAnalytics({ session }) {
+export default function AdvancedAnalytics({ session, refreshToggle }) {
   console.log("AdvancedAnalytics received props - session exists:", !!session);
 
   const [statsBySport, setStatsBySport] = useState([]);
@@ -14,76 +14,77 @@ export default function AdvancedAnalytics({ session }) {
 
   useEffect(() => {
     const checkStatusAndLoad = async () => {
-        if (!session) {
-            setLoading(false);
-            setIsUserPremium(false);
-            return; // Esce se non c'è sessione
-        }
+      setLoading(true); // Inizia caricamento (per status e poi dati)
+      setError('');
+      setStatsBySport([]); // Pulisci dati vecchi
+      setStatsByType([]);
+      setIsUserPremium(false); // Assume non premium all'inizio
 
-        setLoading(true); // Inizia caricamento (per status e poi dati)
-        setError('');
-        setStatsBySport([]); // Pulisci dati vecchi
-        setStatsByType([]);
+      // Add check for user ID
+      if (!session?.user?.id) {
+          console.log("AdvancedAnalytics: No user ID, skipping check.");
+          setLoading(false);
+          return;
+      }
 
-        let currentStatus = 'free';
-        try {
-            // 1. Recupera lo stato dell'utente
-            console.log("AdvancedAnalytics: Checking user status...");
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('subscription_status')
-                .eq('id', session.user.id)
-                .single();
+      let currentStatus = 'free';
+      try {
+          // 1. Recupera lo stato dell'utente
+          console.log("AdvancedAnalytics: Checking user status...");
+          const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('subscription_status')
+              .eq('id', session.user.id) // Usa l'ID
+              .single();
 
-            if (profileError && profileError.code !== 'PGRST116') { // Ignora 'not found'
-                 throw profileError;
-            }
-            currentStatus = profileData?.subscription_status || 'free';
-            setIsUserPremium(currentStatus === 'premium'); // Imposta stato locale
-            console.log("AdvancedAnalytics: User status is", currentStatus);
+          if (profileError && profileError.code !== 'PGRST116') { // Ignora 'not found'
+               throw profileError;
+          }
+          currentStatus = profileData?.subscription_status || 'free';
+          setIsUserPremium(currentStatus === 'premium'); // Imposta stato locale
+          console.log("AdvancedAnalytics: User status is", currentStatus);
 
-            // 2. Se è premium, carica le statistiche avanzate
-            if (currentStatus === 'premium') {
-                console.log("AdvancedAnalytics: User is premium, loading advanced stats...");
-                const fetchAdvancedStats = async (groupBy) => { // Funzione definita dentro
-                    try {
-                        const { data, error } = await supabase.rpc('get_user_advanced_stats', {
-                          p_user_id: session.user.id,
-                          p_group_by: groupBy
-                        });
-                        if (error) throw error;
-                        return data || [];
-                    } catch (err) {
-                        console.error(`Errore recupero statistiche per ${groupBy}:`, err.message);
-                        // Imposta errore specifico per il fetch dei dati
-                        setError(prev => prev + ` Errore stats ${groupBy}: ${err.message}`);
-                        return [];
-                    }
-                };
+          // 2. Se è premium, carica le statistiche avanzate
+          if (currentStatus === 'premium') {
+              console.log("AdvancedAnalytics: User is premium, loading advanced stats...");
+              const fetchAdvancedStats = async (groupBy) => { // Funzione definita dentro
+                  try {
+                      const { data, error } = await supabase.rpc('get_user_advanced_stats', {
+                        p_user_id: session.user.id, // Usa l'ID
+                        p_group_by: groupBy
+                      });
+                      if (error) throw error;
+                      return data || [];
+                  } catch (err) {
+                      console.error(`Errore recupero statistiche per ${groupBy}:`, err.message);
+                      setError(prev => prev + ` Errore stats ${groupBy}: ${err.message}`);
+                      return [];
+                  }
+              };
 
-                const [sportData, typeData] = await Promise.all([
-                    fetchAdvancedStats('sport'),
-                    fetchAdvancedStats('bet_type')
-                ]);
-                setStatsBySport(sportData);
-                setStatsByType(typeData);
+              const [sportData, typeData] = await Promise.all([
+                  fetchAdvancedStats('sport'),
+                  fetchAdvancedStats('bet_type')
+              ]);
+              setStatsBySport(sportData);
+              setStatsByType(typeData);
 
-            } else {
-                 console.log("AdvancedAnalytics: User is not premium, skipping advanced stats load.");
-            }
+          } else {
+               console.log("AdvancedAnalytics: User is not premium, skipping advanced stats load.");
+          }
 
-        } catch (err) {
-            console.error("AdvancedAnalytics: Error checking status or loading data:", err);
-            setError(`Errore generale: ${err.message}`);
-            setIsUserPremium(false); // Resetta in caso di errore
-        } finally {
-            setLoading(false); // Fine caricamento (status e/o dati)
-        }
+      } catch (err) {
+          console.error("AdvancedAnalytics: Error checking status or loading data:", err);
+          setError(`Errore generale: ${err.message}`);
+          setIsUserPremium(false); // Resetta in caso di errore
+      } finally {
+          setLoading(false); // Fine caricamento (status e/o dati)
+      }
     };
 
     checkStatusAndLoad();
-
-  }, [session]); // Dipende solo dalla sessione (il refresh è gestito dalla key in App.jsx)
+  // Change dependency from 'session' to 'session?.user?.id'
+  }, [session?.user?.id, refreshToggle]);
 
 
   // Funzioni helper per formattare (possiamo importarle da un file comune in futuro)
@@ -216,4 +217,4 @@ const tableCellStyleAdv = {
   textAlign: 'left',
   verticalAlign: 'top',
   color: '#333', // Assicura visibilità
-};
+}; 
