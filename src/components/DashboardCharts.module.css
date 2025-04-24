@@ -1,4 +1,4 @@
-/* Stili per DashboardCharts.module.css */
+/* Stili per DashboardCharts.module.css (Dark Theme) */
 
 .chartContainer {
     display: grid;
@@ -10,22 +10,22 @@
 
 .chartWidget {
     padding: 20px; /* Aumentato leggermente per più respiro */
-    border: 1px solid #e0e0e0; /* Bordo leggermente più visibile */
+    border: 1px solid #3a3a3a; /* Bordo scuro */
     border-radius: 8px; /* Bordi più arrotondati */
-    background-color: #ffffff; /* Sfondo bianco */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Ombra leggera */
+    background-color: #1e1e1e; /* Grigio scuro (come stats widget) */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Ombra dark */
     /* Il widget si adatta in altezza al contenuto (ResponsiveContainer gestirà l'altezza del grafico) */
 }
 
 /* Stili aggiuntivi per messaggi specifici (combinabili con chartWidget) */
 .errorMessage {
-    color: #dc3545; /* Rosso per errori */
+    color: #ef9a9a; /* Rosso chiaro per errori */
     font-weight: bold;
 }
 
 .infoMessage {
     font-style: italic;
-    color: #6c757d; /* Grigio per messaggi informativi */
+    color: #bdbdbd; /* Grigio chiaro per info */
     text-align: center; /* Centriamo il testo informativo */
     padding: 40px 20px; /* Più padding verticale per riempire lo spazio */
 } 

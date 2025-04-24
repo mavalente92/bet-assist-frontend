@@ -1,0 +1,154 @@
+/* Stili per BetForm.module.css (Dark Theme) */
+
+.formWidget {
+  padding: 25px;
+  background-color: #1e1e1e; /* Grigio scuro come altri widget */
+  border: 1px solid #3a3a3a; /* Bordo scuro */
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.formWidget h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #e0e0e0; /* Titolo chiaro */
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+/* Stile specifico se vogliamo raggruppare più campi su una riga */
+.formRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Due colonne uguali */
+    gap: 15px;
+    /* Assicurati che .formRow sia usato dentro .formGrid per mantenere la responsività generale */
+    /* Oppure usa @media queries se necessario */
+}
+
+.formGroup label {
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #bdbdbd; /* Label grigio chiaro */
+  font-size: 0.9em;
+}
+
+/* Stili Dark per Input, Select, Textarea */
+.formGroup input[type="text"],
+.formGroup input[type="number"],
+.formGroup input[type="datetime-local"],
+.formGroup select,
+.formGroup textarea {
+  padding: 10px 12px;
+  background-color: #333; /* Sfondo input scuro */
+  border: 1px solid #555; /* Bordo input scuro */
+  border-radius: 4px;
+  font-size: 1rem;
+  color: #e0e0e0; /* Testo input chiaro */
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Stili per select specifici per dark mode */
+.formGroup select {
+    /* Potrebbe servire stile specifico per freccia dropdown in dark mode */
+    /* background-image: url('data:image/svg+xml;...'); */
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+  border-color: #90caf9; /* Bordo blu chiaro al focus */
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(144, 202, 249, 0.25); /* Ombra blu chiaro al focus */
+}
+
+.formGroup textarea {
+  min-height: 80px;
+  resize: vertical; /* Permette solo resize verticale */
+}
+
+/* Messaggi Adattati */
+.message {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.messageSuccess {
+    composes: message;
+    color: #c8e6c9; /* Testo verde chiaro */
+    background-color: #2e7d32; /* Sfondo verde scuro */
+    border: 1px solid #388e3c;
+}
+
+.messageError {
+    composes: message;
+    color: #ef9a9a; /* Testo rosso chiaro */
+    background-color: #c62828; /* Sfondo rosso scuro */
+    border: 1px solid #d32f2f;
+}
+
+/* Bottone Submit Adattato */
+.submitButton {
+  padding: 10px 20px;
+  font-size: 1rem;
+  color: #ffffff; /* Testo bianco */
+  background-color: #0277bd; /* Blu più scuro come primario */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  margin-top: 10px; /* Spazio sopra il bottone */
+}
+
+.submitButton:hover {
+  background-color: #039be5; /* Blu più chiaro all'hover */
+}
+
+.submitButton:disabled {
+  background-color: #555; /* Grigio scuro disabilitato */
+  color: #aaa; /* Testo grigio chiaro disabilitato */
+  cursor: not-allowed;
+}
+
+/* Stili per l'area Stake Suggerito */
+.stakeSuggestion {
+    background-color: #333; /* Sfondo scuro come input */
+    padding: 10px;
+    margin: 10px 0 15px 0; /* Spazio sopra e sotto */
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: #bdbdbd; /* Testo grigio chiaro */
+    border: 1px dashed #555; /* Bordo tratteggiato scuro */
+}
+
+.stakeSuggestion strong {
+    color: #90caf9; /* Blu chiaro per evidenziare */
+}
+
+.stakeSuggestion button {
+    margin-left: 10px;
+    padding: 2px 8px;
+    font-size: 0.8em;
+    cursor: pointer;
+    background-color: #4caf50; /* Verde brillante */
+    color: white;
+    border: none;
+    border-radius: 3px;
+}
+
+.stakeSuggestion button:hover {
+    background-color: #66bb6a;
+} 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import styles from './BetForm.module.css'; // Importa CSS Module
 
 // Riceve la sessione per sapere a quale utente associare la scommessa
 // Riceve una prop 'onSubmitSuccess' per notificare App.jsx quando una scommessa è aggiunta
@@ -216,183 +217,186 @@ export default function BetForm({ session, onSubmitSuccess }) {
     }
   };
 
-  // ----- JSX del Form (modificato per mostrare suggerimento stake) -----
+  // Funzione helper per usare lo stake suggerito
+  const handleUseSuggestedStake = () => {
+      if (suggestedStake !== null) {
+          setStake(suggestedStake.toString()); // Imposta lo stake nel campo input
+      }
+  }
+
+  // ----- JSX del Form (Refattorizzato con CSS Modules) -----
   return (
-    <div className="form-widget">
+    <div className={styles.formWidget}>
       <h3>Aggiungi Nuova Scommessa ({betType})</h3>
-      {message && <p style={{ color: message.startsWith('Errore') ? 'red' : 'green' }}>{message}</p>}
+      {message && (
+        <p className={message.startsWith('Errore') ? styles.messageError : styles.messageSuccess}>
+            {message}
+        </p>
+      )}
       <form onSubmit={handleSaveBet}>
-        {/* Data e Ora */}
-        <div>
-          <label htmlFor="betDatetime">Data e Ora</label>
-          <input
-            id="betDatetime"
-            type="datetime-local" // Input specifico per data/ora
-            value={betDatetime}
-            onChange={(e) => setBetDatetime(e.target.value)}
-            required
-          />
-        </div>
-
-        {/* Sport */}
-        <div>
-          <label htmlFor="sport">Sport *</label>
-          <input
-            id="sport"
-            type="text"
-            placeholder="Es. Calcio, Tennis..."
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            required
-          />
-        </div>
-
-        {/* Lega (Opzionale) */}
-        <div>
-          <label htmlFor="league">Lega/Torneo</label>
-          <input
-            id="league"
-            type="text"
-            placeholder="Es. Serie A, Wimbledon..."
-            value={league}
-            onChange={(e) => setLeague(e.target.value)}
-          />
-        </div>
-
-        {/* Evento */}
-        <div>
-          <label htmlFor="event">Evento *</label>
-          <input
-            id="event"
-            type="text"
-            placeholder="Es. Milan - Inter, Finale ATP..."
-            value={eventName}
-            onChange={(e) => {
-                const value = e.target.value;
-                console.log('Evento onChange - e.target.value:', value);
-                setEventName(value);
-            }}
-            required
-          />
-        </div>
-
-        {/* Esito (per Singola) */}
-        <div>
-          <label htmlFor="selectionOutcome">Esito Pronosticato *</label>
-          <input
-            id="selectionOutcome"
-            type="text"
-            placeholder="Es. 1, Over 2.5, Testa a Testa 1..."
-            value={selectionOutcome}
-            onChange={(e) => setSelectionOutcome(e.target.value)}
-            required
-          />
-        </div>
-
-        {/* Quota */}
-        <div>
-          <label htmlFor="odds">Quota *</label>
-          <input
-            id="odds"
-            type="number"
-            step="0.01" // Permette decimali
-            placeholder="Es. 1.85"
-            value={odds}
-            onChange={(e) => setOdds(e.target.value)}
-            required
-            min="1" // Le quote sono solitamente > 1
-          />
-        </div>
-
-        {/* Sezione Puntata con Suggerimento */}
-        <div>
-          <label htmlFor="stake" style={{color: '#333'}}>Puntata (€) *</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}> {/* Flex container */}
+        {/* Usiamo formGrid per layout responsive */}
+        <div className={styles.formGrid}>
+          {/* --- Gruppo Data/Ora e Sport --- */}
+          <div className={styles.formGroup}> {/* Occupa una colonna della griglia */} 
+            <label htmlFor="betDatetime">Data e Ora</label>
             <input
-              id="stake"
-              type="number"
-              step="0.01"
-              placeholder="Es. 10.00"
-              value={stake}
-              onChange={(e) => setStake(e.target.value)}
+              id="betDatetime"
+              type="datetime-local"
+              value={betDatetime}
+              onChange={(e) => setBetDatetime(e.target.value)}
               required
-              min="0.01"
-              style={{ padding: '5px', flexGrow: 1, minWidth: '100px' }} // Stile input puntata
+              disabled={loading}
             />
-            {/* Mostra suggerimento solo se calcolato e diverso da 0 */}
-            {!loadingPlan && suggestedStake !== null && suggestedStake > 0 && (
-              <span style={{ fontSize: '0.9em', color: '#007bff', backgroundColor: '#e7f3ff', padding: '5px 8px', borderRadius: '4px' }}>
-                Suggerito: {suggestedStake.toFixed(2)} €
-                {activePlan && <small> ({activePlan.plan_type === 'fixed_percentage' ? `${activePlan.config.percentage}%` : `Unità ${activePlan.config.unit_value}€`})</small>}
-                 {/* Bottone Opzionale per applicare suggerimento */}
-                 <button
-                     type="button" // IMPORTANTE: type="button" per non inviare il form
-                     onClick={() => setStake(suggestedStake)}
-                     title="Applica puntata suggerita"
-                     style={{ marginLeft: '8px', padding: '2px 6px', fontSize: '0.8em', cursor: 'pointer' }}
-                 >
-                     Applica
-                 </button>
-              </span>
-            )}
-             {loadingPlan && <span style={{fontSize: '0.8em', color: '#777'}}>Carico piano...</span>}
           </div>
-        </div>
 
-        {/* Bookmaker */}
-        <div>
-          <label htmlFor="bookmakerId">Bookmaker *</label>
-          <select
-            id="bookmakerId"
-            value={bookmakerId}
-            onChange={(e) => setBookmakerId(e.target.value)}
+          <div className={styles.formGroup}> {/* Occupa un'altra colonna */} 
+            <label htmlFor="sport">Sport *</label>
+            <input
+              id="sport"
+              type="text"
+              placeholder="Es. Calcio, Tennis..."
+              value={sport}
+              onChange={(e) => setSport(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          {/* --- Gruppo Lega ed Evento --- */} 
+          <div className={styles.formGroup}> 
+            <label htmlFor="league">Lega/Torneo</label>
+            <input
+              id="league"
+              type="text"
+              placeholder="(Opzionale) Es. Serie A, ATP Finals"
+              value={league}
+              onChange={(e) => setLeague(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="eventName">Evento *</label>
+            <input
+              id="eventName"
+              type="text"
+              placeholder="Es. Inter - Milan, Djokovic - Sinner"
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          {/* --- Gruppo Selezione e Quota --- */} 
+          <div className={styles.formGroup}>
+            <label htmlFor="selectionOutcome">Selezione/Esito *</label>
+            <input
+              id="selectionOutcome"
+              type="text"
+              placeholder="Es. 1, Over 2.5, Testa a Testa 1"
+              value={selectionOutcome}
+              onChange={(e) => setSelectionOutcome(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="odds">Quota *</label>
+            <input
+              id="odds"
+              type="number"
+              step="0.01" // Permette decimali
+              min="1.01" // Quota minima valida
+              placeholder="Es. 1.85"
+              value={odds}
+              onChange={(e) => setOdds(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          {/* --- Gruppo Bookmaker e Stato --- */}
+          <div className={styles.formGroup}>
+            <label htmlFor="bookmakerId">Bookmaker *</label>
+            <select
+              id="bookmakerId"
+              value={bookmakerId}
+              onChange={(e) => setBookmakerId(e.target.value)}
+              required
+              disabled={loading}
+            >
+              <option value="" disabled>-- Seleziona Bookmaker --</option>
+              {bookmakers.map((book) => (
+                <option key={book.id} value={book.id}>
+                  {book.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="status">Stato Scommessa</label>
+            <select
+              id="status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              disabled={loading}
+            >
+              <option value="Aperta">Aperta</option>
+              <option value="Vinta">Vinta</option>
+              <option value="Persa">Persa</option>
+              <option value="Void">Void</option>
+              {/* Aggiungere altri stati se necessario */}
+            </select>
+          </div>
+        </div> {/* Fine formGrid */} 
+
+        {/* --- Sezione Puntata (Stake) --- */}
+        {/* Mostra suggerimento solo se disponibile e non in loading piano */} 
+        {!loadingPlan && suggestedStake !== null && (
+            <div className={styles.stakeSuggestion}>
+                Piano Attivo: {activePlan?.plan_name || 'N/D'} - Puntata Suggerita: <strong>{suggestedStake.toFixed(2)}</strong>
+                <button type="button" onClick={handleUseSuggestedStake} disabled={loading}>
+                    Usa Suggerimento
+                </button>
+            </div>
+        )}
+        {loadingPlan && <p>Caricamento info staking...</p>}
+
+        {/* Campo Puntata - ora separato dalla griglia principale */} 
+        <div className={styles.formGroup}>
+          <label htmlFor="stake">Puntata *</label>
+          <input
+            id="stake"
+            type="number"
+            step="0.01"
+            min="0.01" // Puntata minima
+            placeholder="Inserisci la puntata..."
+            value={stake}
+            onChange={(e) => setStake(e.target.value)}
             required
-          >
-            <option value="" disabled>Seleziona un bookmaker</option>
-            {bookmakers.map((bookie) => (
-              <option key={bookie.id} value={bookie.id}>
-                {bookie.name}
-              </option>
-            ))}
-          </select>
-          {/* Qui potremmo aggiungere logica per l'input "Altro" */}
+            disabled={loading}
+          />
         </div>
 
-        {/* Stato */}
-        <div>
-          <label htmlFor="status">Stato</label>
-          <select
-            id="status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="Aperta">Aperta</option>
-            <option value="Vinta">Vinta</option>
-            <option value="Persa">Persa</option>
-            <option value="Rimborsata/Void">Rimborsata/Void</option>
-            <option value="Cash Out">Cash Out</option>
-             {/* Dovremo aggiungere input per importo cashout se selezionato */}
-          </select>
-        </div>
-
-        {/* Note */}
-        <div>
+        {/* --- Note (TextArea) - occupa tutta la larghezza sotto la griglia --- */}
+        <div className={styles.formGroup}>
           <label htmlFor="notes">Note</label>
           <textarea
             id="notes"
-            placeholder="Note aggiuntive..."
+            placeholder="(Opzionale) Aggiungi dettagli o analisi..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            rows={3}
+            disabled={loading}
           />
         </div>
 
         {/* Bottone Salva */}
-        <div>
-          <button className="button primary block" type="submit" disabled={loading}>
-            {loading ? 'Salvataggio...' : 'Salva Scommessa'}
-          </button>
-        </div>
+        <button type="submit" className={styles.submitButton} disabled={loading}>
+          {loading ? 'Salvataggio...' : 'Salva Scommessa'}
+        </button>
       </form>
     </div>
   );

@@ -1,9 +1,9 @@
-/* Stili per Navigation.module.css */
+/* Stili per Navigation.module.css (Dark Theme) */
 
 .navContainer {
   display: flex;
   margin-bottom: 25px; /* Aumentato leggermente */
-  border-bottom: 1px solid #dee2e6; /* Bordo più standard e sottile */
+  border-bottom: 1px solid #3a3a3a; /* Bordo scuro ma visibile */
   padding-bottom: 0; /* Rimosso padding, allineiamo i bottoni */
 }
 
@@ -15,7 +15,7 @@
   border-bottom: 3px solid transparent; /* Bordo trasparente per mantenere altezza */
   background-color: transparent;
   font-size: 1rem; /* Dimensione standard */
-  color: #495057; /* Grigio scuro per testo non attivo */
+  color: #bdbdbd; /* Grigio chiaro per testo non attivo */
   margin-right: 15px; /* Spazio tra bottoni */
   transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out; /* Transizione fluida */
   position: relative; /* Per eventuale pseudo-elemento */
@@ -25,17 +25,17 @@
 /* Stile per il bottone quando è attivo */
 .activeTabButton {
   composes: tabButton; /* Eredita gli stili di tabButton */
-  color: #007bff; /* Blu primario per testo attivo */
+  color: #ffffff; /* Bianco per testo attivo */
   font-weight: 600; /* Leggermente grassetto */
-  border-bottom-color: #007bff; /* Bordo blu visibile */
+  border-bottom-color: #90caf9; /* Usiamo il blu chiaro dei link per il bordo attivo */
 }
 
 /* Effetto hover per migliorare interattività */
 .tabButton:hover {
-  color: #0056b3; /* Blu più scuro all'hover */
+  color: #ffffff; /* Bianco all'hover */
 }
 
 .activeTabButton:hover {
    /* Non cambiamo colore all'hover se già attivo, o un leggero scurimento se preferisci */
-  color: #0056b3;
+  color: #ffffff;
 } 

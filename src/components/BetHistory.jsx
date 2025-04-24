@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import styles from './BetHistory.module.css'; // Importa CSS Module
 
 // Riceve la sessione come prop
 export default function BetHistory({ session, refreshToggle }) {
@@ -148,50 +149,63 @@ export default function BetHistory({ session, refreshToggle }) {
     return firstSelection.outcome || '-';
   };
 
+  // Funzione per ottenere la classe CSS per la cella P/L
+  const getPlCellStyle = (profit_loss) => {
+      if (profit_loss === null || profit_loss === undefined || isNaN(profit_loss)) {
+          return styles.tableCell; // Stile base se non è un numero valido
+      }
+      if (profit_loss > 0) {
+          return styles.cellPositive;
+      }
+      if (profit_loss < 0) {
+          return styles.cellNegative;
+      }
+      return styles.tableCell; // Stile base se P/L è 0
+  };
+
   // ----- JSX per visualizzare la lista -----
   return (
-    <div className="history-widget" style={{ marginTop: '30px' }}>
+    <div className={styles.historyWidget}>
       <h3>Storico Scommesse</h3>
 
       {/* --- SEZIONE FILTRI E ORDINAMENTO --- */}
-      <div className="filter-sort-controls" style={filterAreaStyle}>
+      <div className={styles.filterArea}>
         <h4>Filtri e Ordinamento</h4>
-        <div style={filterGridStyle}>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Da Data:</label>
-            <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} style={inputStyle}/>
+        <div className={styles.filterGrid}>
+          <div className={styles.filterGroup}>
+            <label htmlFor="startDate">Da Data:</label>
+            <input id="startDate" type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className={styles.filterInput}/>
           </div>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>A Data:</label>
-            <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} style={inputStyle}/>
+          <div className={styles.filterGroup}>
+            <label htmlFor="endDate">A Data:</label>
+            <input id="endDate" type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className={styles.filterInput}/>
           </div>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Sport:</label>
-            <input type="text" name="sport" placeholder="Es. Calcio" value={filters.sport} onChange={handleFilterChange} style={inputStyle}/>
+          <div className={styles.filterGroup}>
+            <label htmlFor="sport">Sport:</label>
+            <input id="sport" type="text" name="sport" placeholder="Es. Calcio" value={filters.sport} onChange={handleFilterChange} className={styles.filterInput}/>
           </div>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Stato:</label>
-            <select name="status" value={filters.status} onChange={handleFilterChange} style={inputStyle}>
+          <div className={styles.filterGroup}>
+            <label htmlFor="status">Stato:</label>
+            <select id="status" name="status" value={filters.status} onChange={handleFilterChange} className={styles.filterSelect}>
               <option value="">Tutti</option>
               <option value="Aperta">Aperta</option>
               <option value="Vinta">Vinta</option>
               <option value="Persa">Persa</option>
-              <option value="Rimborsata/Void">Rimborsata/Void</option>
-              <option value="Cash Out">Cash Out</option>
+              <option value="Void">Void</option>
             </select>
           </div>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Bookmaker:</label>
-            <select name="bookmakerId" value={filters.bookmakerId} onChange={handleFilterChange} style={inputStyle}>
+          <div className={styles.filterGroup}>
+            <label htmlFor="bookmakerId">Bookmaker:</label>
+            <select id="bookmakerId" name="bookmakerId" value={filters.bookmakerId} onChange={handleFilterChange} className={styles.filterSelect}>
               <option value="">Tutti</option>
               {bookmakers.map(bookie => (
                 <option key={bookie.id} value={bookie.id}>{bookie.name}</option>
               ))}
             </select>
           </div>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Ordina per:</label>
-            <select name="field" value={sort.field} onChange={handleSortChange} style={inputStyle}>
+          <div className={styles.filterGroup}>
+            <label htmlFor="sortField">Ordina per:</label>
+            <select id="sortField" name="field" value={sort.field} onChange={handleSortChange} className={styles.filterSelect}>
               <option value="bet_datetime">Data Scommessa</option>
               <option value="stake">Puntata</option>
               <option value="odds">Quota</option>
@@ -199,61 +213,61 @@ export default function BetHistory({ session, refreshToggle }) {
               <option value="sport">Sport</option>
             </select>
           </div>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Direzione:</label>
-            <select name="direction" value={sort.direction} onChange={handleSortChange} style={inputStyle}>
+          <div className={styles.filterGroup}>
+            <label htmlFor="sortDirection">Direzione:</label>
+            <select id="sortDirection" name="direction" value={sort.direction} onChange={handleSortChange} className={styles.filterSelect}>
               <option value="desc">Discendente</option>
               <option value="asc">Ascendente</option>
             </select>
           </div>
         </div>
-        <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-          <button onClick={applyFiltersAndSort} style={buttonStyle}>Applica</button>
-          <button onClick={resetFiltersAndSort} style={{...buttonStyle, backgroundColor: '#6c757d'}}>Resetta</button>
+        <div className={styles.filterActions}>
+          <button onClick={applyFiltersAndSort} className={styles.applyButton}>Applica</button>
+          <button onClick={resetFiltersAndSort} className={styles.resetButton}>Resetta</button>
         </div>
       </div>
       {/* --- FINE SEZIONE FILTRI --- */}
 
       {loadingBets && <p>Caricamento storico scommesse...</p>}
-      {errorMessage && <p style={{ color: 'red' }}>{errorMessage}</p>}
+      {errorMessage && <p className={styles.errorMessage}>{errorMessage}</p>}
 
       {!loadingBets && !errorMessage && (
         <>
           {bets.length === 0 ? (
-            <p style={{ fontStyle: 'italic', marginTop: '15px' }}>Nessuna scommessa trovata con i filtri applicati.</p>
+            <p className={styles.noBetsMessage}>Nessuna scommessa trovata con i filtri applicati.</p>
           ) : (
-            <div style={{ overflowX: 'auto', marginTop: '15px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className={styles.tableContainer}>
+              <table className={styles.historyTable}>
                 <thead>
                   <tr>
-                    <th style={tableHeaderStyle}>Data</th>
-                    <th style={tableHeaderStyle}>Sport</th>
-                    <th style={tableHeaderStyle}>Evento</th>
-                    <th style={tableHeaderStyle}>Esito</th>
-                    <th style={tableHeaderStyle}>Quota</th>
-                    <th style={tableHeaderStyle}>Puntata</th>
-                    <th style={tableHeaderStyle}>Bookmaker</th>
-                    <th style={tableHeaderStyle}>Stato</th>
-                    <th style={tableHeaderStyle}>P/L</th>
+                    <th className={styles.tableHeader}>Data</th>
+                    <th className={styles.tableHeader}>Sport</th>
+                    <th className={styles.tableHeader}>Evento</th>
+                    <th className={styles.tableHeader}>Esito</th>
+                    <th className={styles.tableHeader}>Quota</th>
+                    <th className={styles.tableHeader}>Puntata</th>
+                    <th className={styles.tableHeader}>Bookmaker</th>
+                    <th className={styles.tableHeader}>Stato</th>
+                    <th className={styles.tableHeader}>P/L</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bets.map((bet) => (
-                    <tr key={bet.id}>
-                      <td style={tableCellStyle}>{formatDateTime(bet.bet_datetime)}</td>
-                      <td style={tableCellStyle}>{bet.sport || '-'}</td>
-                      <td style={tableCellStyle}>{bet.event || '-'}</td>
-                      <td style={tableCellStyle}>{formatSelections(bet.selections)}</td>
-                      <td style={tableCellStyle}>{bet.odds ? bet.odds.toFixed(2) : '-'}</td>
-                      <td style={tableCellStyle}>{bet.stake ? bet.stake.toFixed(2) : '-'}</td>
-                      <td style={tableCellStyle}>{bet.bookmakers?.name || '-'}</td>
-                      <td style={tableCellStyle}>
+                    <tr key={bet.id} className={styles.tableRow}>
+                      <td className={styles.tableCell}>{formatDateTime(bet.bet_datetime)}</td>
+                      <td className={styles.tableCell}>{bet.sport || '-'}</td>
+                      <td className={styles.tableCell}>{bet.event || '-'}</td>
+                      <td className={styles.tableCell}>{formatSelections(bet.selections)}</td>
+                      <td className={styles.tableCell}>{bet.odds ? bet.odds.toFixed(2) : '-'}</td>
+                      <td className={styles.tableCell}>{bet.stake ? bet.stake.toFixed(2) : '-'}</td>
+                      <td className={styles.tableCell}>{bet.bookmakers?.name || '-'}</td>
+                      <td className={styles.tableCell}>
                         <span style={{ color: bet.status === 'Vinta' ? 'green' : bet.status === 'Persa' ? 'red' : 'inherit' }}>
                           {bet.status}
                         </span>
                       </td>
-                      <td style={{ ...tableCellStyle, color: bet.profit_loss > 0 ? 'green' : bet.profit_loss < 0 ? 'red' : 'inherit', fontWeight: bet.profit_loss !== null ? 'bold' : 'normal' }}>
-                        {bet.profit_loss !== null ? bet.profit_loss.toFixed(2) : '-'}
+                      <td className={getPlCellStyle(bet.profit_loss)}>
+                        {bet.profit_loss !== null && bet.profit_loss !== undefined ? bet.profit_loss.toFixed(2) : '-'}
                       </td>
                     </tr>
                   ))}
@@ -267,61 +281,7 @@ export default function BetHistory({ session, refreshToggle }) {
   );
 }
 
-// Stili base per la tabella (possono essere spostati in App.css)
-const tableHeaderStyle = {
-  borderBottom: '2px solid #ccc',
-  padding: '8px',
-  textAlign: 'left',
-  backgroundColor: '#f2f2f2',
-};
-
-const tableCellStyle = {
-  borderBottom: '1px solid #eee',
-  padding: '8px',
-  textAlign: 'left',
-  verticalAlign: 'top',
-};
-
-// --- NUOVI STILI PER FILTRI ---
-const filterAreaStyle = {
-  backgroundColor: '#f8f9fa',
-  padding: '15px',
-  border: '1px solid #dee2e6',
-  borderRadius: '5px',
-  marginBottom: '20px',
-};
-
-const filterGridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: '10px 15px',
-};
-
-const filterGroupStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-};
-
-const labelStyle = {
-  marginBottom: '4px',
-  fontSize: '0.9em',
-  fontWeight: 'bold',
-  color: '#495057',
-};
-
-const inputStyle = {
-  padding: '6px 8px',
-  border: '1px solid #ced4da',
-  borderRadius: '4px',
-  fontSize: '0.95em',
-};
-
-const buttonStyle = {
-  padding: '8px 12px',
-  border: 'none',
-  borderRadius: '4px',
-  backgroundColor: '#007bff',
-  color: 'white',
-  cursor: 'pointer',
-  fontSize: '0.95em',
-}; 
+// Rimuovi le definizioni degli stili inline
+// const filterAreaStyle = { ... }
+// const filterGridStyle = { ... }
+// ... e così via 

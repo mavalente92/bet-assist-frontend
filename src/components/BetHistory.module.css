@@ -1,0 +1,155 @@
+/* Stili per BetHistory.module.css (Dark Theme) */
+
+.historyWidget {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #1e1e1e; /* Come altri widget */
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+}
+
+.historyWidget h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #e0e0e0;
+}
+
+/* Area Filtri */
+.filterArea {
+  background-color: #2c2c2c; /* Sfondo leggermente diverso per area filtri */
+  padding: 15px 20px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #444;
+}
+
+.filterArea h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #bdbdbd;
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Colonne più strette per filtri */
+  gap: 15px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.filterGroup label {
+  margin-bottom: 5px;
+  font-size: 0.85em;
+  color: #bdbdbd;
+}
+
+/* Stile comune per input e select dei filtri */
+.filterInput,
+.filterSelect {
+  padding: 8px 10px;
+  background-color: #333;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #e0e0e0;
+}
+
+.filterInput:focus,
+.filterSelect:focus {
+  border-color: #90caf9;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(144, 202, 249, 0.25);
+}
+
+/* Bottoni Filtri */
+.filterActions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.applyButton,
+.resetButton {
+  padding: 8px 15px;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.applyButton {
+  background-color: #0277bd; /* Blu scuro */
+  color: white;
+}
+.applyButton:hover {
+  background-color: #039be5;
+}
+
+.resetButton {
+  background-color: #555;
+  color: #ccc;
+}
+.resetButton:hover {
+  background-color: #666;
+}
+
+/* Stile Tabella */
+.tableContainer {
+    overflow-x: auto; /* Mantiene scroll orizzontale se necessario */
+    margin-top: 20px;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  color: #e0e0e0; /* Testo tabella chiaro */
+}
+
+.tableHeader {
+  background-color: #333; /* Sfondo intestazione scuro */
+  color: #bdbdbd; /* Testo intestazione grigio chiaro */
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.9em;
+  border-bottom: 2px solid #444;
+}
+
+.tableRow {
+  border-bottom: 1px solid #3a3a3a; /* Bordo riga sottile */
+  transition: background-color 0.15s ease-in-out;
+}
+
+.tableRow:hover {
+  background-color: #2c2c2c; /* Sfondo leggermente più chiaro all'hover */
+}
+
+.tableCell {
+  padding: 10px 12px;
+  font-size: 0.95em;
+  vertical-align: middle; /* Allinea verticalmente al centro */
+}
+
+/* Celle con colori specifici */
+.cellPositive {
+    composes: tableCell;
+    color: #66bb6a; /* Verde brillante */
+    font-weight: 500;
+}
+
+.cellNegative {
+    composes: tableCell;
+    color: #ef5350; /* Rosso brillante */
+    font-weight: 500;
+}
+
+/* Messaggio Nessuna Scommessa */
+.noBetsMessage {
+    font-style: italic;
+    margin-top: 20px;
+    color: #9e9e9e; /* Grigio medio */
+    text-align: center;
+} 
